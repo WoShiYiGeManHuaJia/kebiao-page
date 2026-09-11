@@ -4,7 +4,7 @@
 运行一次即完成"拉取+渲染+推送"，把 index.html 覆盖到 kebiao-page 仓库，
 GitHub 自动重建，公网链接 woshiyigemanhuajia.github.io/kebiao-page 更新为最新。
 """
-import json, os, time, base64, urllib.request, urllib.parse
+import json, os, time, base64, subprocess, urllib.request, urllib.parse
 
 # ============ 配置（从本机配置文件读取，安全起见不写死在脚本里） ============
 USER_NO = ""
@@ -143,12 +143,28 @@ th{{background:#2b5aa0;color:#fff;font-weight:600}}
 </body></html>"""
 
 
+def gh_api(method, path, body=None, timeout=30):
+    """GitHub API 用系统 curl 发送（路由器的 Python 缺 https 支持，curl 自带）"""
+    cmd = ["curl", "-sS", "--max-time", str(timeout), "-X", method,
+           "-H", f"Authorization: token {GH_PAT}",
+           "-H", "Accept: application/vnd.github+json",
+           "-H", "User-Agent: kebiao-updater"]
+    if body is not None:
+        cmd += ["-H", "Content-Type: application/json", "--data-binary", json.dumps(body)]
+    cmd.append(f"https://api.github.com{path}")
+    p = subprocess.run(cmd, capture_output=True, text=False, timeout=timeout + 5)
+    if p.returncode != 0:
+        raise RuntimeError("curl 失败(%s): %s" % (p.returncode, p.stderr.decode("utf-8", "ignore")[:200]))
+    out = p.stdout.decode("utf-8", "ignore")
+    try:
+        return json.loads(out)
+    except Exception:
+        raise RuntimeError("GitHub 返回非 JSON: " + out[:200])
+
+
 def push_to_github(html):
     # 1) 取当前 index.html 的 sha
-    req = urllib.request.Request(f"https://api.github.com/repos/{GH_REPO}/contents/{GH_PAGE}")
-    req.add_header("Authorization", f"token {GH_PAT}")
-    req.add_header("Accept", "application/vnd.github+json")
-    cur = json.loads(http_get(req, timeout=20).decode())
+    cur = gh_api("GET", f"/repos/{GH_REPO}/contents/{GH_PAGE}")
     old_sha = cur.get("sha")
 
     # 2) 比对内容，无变化则跳过，避免无意义 commit
@@ -162,13 +178,7 @@ def push_to_github(html):
         "content": base64.b64encode(html.encode("utf-8")).decode(),
         "sha": old_sha,
     }
-    req = urllib.request.Request(
-        f"https://api.github.com/repos/{GH_REPO}/contents/{GH_PAGE}",
-        data=json.dumps(body).encode(), method="PUT")
-    req.add_header("Authorization", f"token {GH_PAT}")
-    req.add_header("Accept", "application/vnd.github+json")
-    req.add_header("Content-Type", "application/json")
-    resp = json.loads(http_get(req, timeout=30).decode())
+    resp = gh_api("PUT", f"/repos/{GH_REPO}/contents/{GH_PAGE}", body)
     return "pushed:" + resp.get("commit", {}).get("sha", "?")
 
 
