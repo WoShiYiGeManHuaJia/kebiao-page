@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 """
-路由器定时任务：每小时拉最新课表 -> 推送到 GitHub Pages 公开仓
-运行一次即完成"拉取+渲染+推送"，把 index.html 覆盖到 kebiao-page 仓库，
-GitHub 自动重建，公网链接 woshiyigemanhuajia.github.io/kebiao-page 更新为最新。
+路由器定时任务：一次性拉取本学期 1~20 周课表 -> 生成带"周选择下拉框"的页面
+-> 推送到 GitHub Pages 公开仓。浏览器打开链接后，可自选任意周查看（纯前端切换，无网络请求）。
+运行一次即完成"拉取全部周+渲染+推送"。
 """
 import json, os, sys, time, base64, subprocess, urllib.request, urllib.parse
 
@@ -14,6 +14,7 @@ BASE = "http://222.243.161.213:81/hnrjzyxyhd"
 GH_PAT = ""
 GH_REPO = "WoShiYiGeManHuaJia/kebiao-page"
 GH_PAGE = "index.html"
+MAX_WEEK = 20
 # ==============================
 
 def _load_kb_conf():
@@ -77,12 +78,10 @@ def fetch_curriculum(token, week=""):
     return json.loads(raw.decode("utf-8", "ignore"))
 
 
-def render_html(cur, query_week=""):
-    data = cur["data"][0]
-    top = data["topInfo"][0]
-    courses = data.get("courses") or []
+def parse_courses(data):
+    """把某一周的课程列表解析为精简结构：{day, secs, name, teacher, room, bld, time}"""
     parsed = []
-    for c in courses:
+    for c in (data.get("courses") or []):
         s = str(c.get("classTime") or "")
         secs = []
         if len(s) > 1:
@@ -91,12 +90,40 @@ def render_html(cur, query_week=""):
                     secs.append(int(s[i + 1:i + 3]))
                 except ValueError:
                     pass
-        weeks = [int(x) for x in str(c.get("classWeekDetails") or "").split(",") if x]
-        day = int(c.get("weekDay") or 1)
-        parsed.append({"day": day, "secs": secs, "weeks": weeks,
+        parsed.append({"day": int(c.get("weekDay") or 1), "secs": secs,
                        "name": c.get("courseName", ""), "teacher": c.get("teacherName", ""),
                        "room": c.get("classroomName", ""), "bld": c.get("buildingName", ""),
                        "time": f"{c.get('startTime','')}-{c.get('endTIme','')}"})
+    return parsed
+
+
+def load_all_weeks(token):
+    """拉取本学期 1~MAX_WEEK 周，返回 {week_str: [parsed...]} 与学期信息"""
+    weeks = {}
+    semester = ""
+    current_week = 1
+    for w in range(1, MAX_WEEK + 1):
+        try:
+            cur = fetch_curriculum(token, week=str(w))
+            if str(cur.get("code")) == "1":
+                data = cur["data"][0]
+                top = data["topInfo"][0]
+                if w == 1:
+                    semester = top.get("semesterId", "")
+                    try:
+                        current_week = int(top.get("week") or 1)
+                    except ValueError:
+                        current_week = 1
+                weeks[str(w)] = parse_courses(data)
+            else:
+                weeks[str(w)] = []
+        except Exception:
+            weeks[str(w)] = []
+    return weeks, semester, current_week
+
+
+def table_html(parsed):
+    """由某周课程列表渲染出表格 HTML"""
     cell, start = {}, {}
     for i, p in enumerate(parsed):
         for sec in p["secs"]:
@@ -109,39 +136,60 @@ def render_html(cur, query_week=""):
         for d in range(1, 6):
             if (d, sec) in start:
                 p = parsed[start[(d, sec)]]
-                rs = len(p["secs"]) if len(p["secs"]) > 0 else 1
-                w = f'{p["weeks"][0]}-{p["weeks"][-1]}周' if p["weeks"] else ""
+                rs = max(len(p["secs"]), 1)
                 color = COLORS[start[(d, sec)] % len(COLORS)]
                 td += (f'<td rowspan="{rs}" class="cls" style="background:{color}"><div class="cname">{esc(p["name"])}</div>'
                        f'<div class="cinfo">{esc(p["time"])}</div>'
                        f'<div class="cinfo">{esc(p["bld"])}·{esc(p["room"])}</div>'
-                       f'<div class="cinfo">{esc(p["teacher"])} · {esc(w)}</div></td>')
+                       f'<div class="cinfo">{esc(p["teacher"])}</div></td>')
             elif (d, sec) not in cell:
                 td += "<td></td>"
         rows.append(f"<tr>{td}</tr>")
-    weeks_info = ', '.join(str(x) for x in sorted(set(w for p in parsed for w in p["weeks"]) or [1]))
-    wk_disp = query_week if query_week else top.get("week", "?")
-    week_label = ("第" + wk_disp + "周") if str(wk_disp).isdigit() else str(wk_disp)
-    info = (f'{esc(top.get("semesterId",""))} · {week_label} / 共{top.get("maxWeek","")}周 · '
-            f'{esc(top.get("today",""))}（{esc(top.get("weekday",""))}） · 覆盖第{esc(weeks_info)}周')
     header = "".join(f"<th>{DAY_NAMES[d]}</th>" for d in range(1, 6))
+    return f'<table><tr><th class="time">节次</th>{header}</tr>{"".join(rows)}</table>'
+
+
+def render_page(weeks, semester, current_week):
+    """生成整页：下拉框 + 每周一个隐藏的表格面板 + 切换 JS"""
+    options = "".join(f'<option value="{w}"{" selected" if w == current_week else ""}>第 {w} 周</option>'
+                      for w in range(1, MAX_WEEK + 1))
+    panes = []
+    for w in range(1, MAX_WEEK + 1):
+        parsed = weeks.get(str(w), [])
+        content = table_html(parsed) if parsed else '<div class="empty">本周暂无课程安排</div>'
+        panes.append(f'<div class="pane" data-wk="{w}">{content}</div>')
     now = time.strftime("%Y-%m-%d %H:%M")
     return f"""<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1"><title>我的课表·实时</title><style>
+<meta name="viewport" content="width=device-width, initial-scale=1"><title>我的课表</title><style>
 *{{margin:0;padding:0;box-sizing:border-box}}
 body{{font-family:-apple-system,'PingFang SC','Microsoft YaHei',sans-serif;background:#f5f7fa;padding:14px;color:#222}}
 h1{{font-size:20px;text-align:center;margin:6px 0 2px}}
-.sub{{text-align:center;color:#888;font-size:13px;margin-bottom:12px}}
-table{{width:100%;border-collapse:collapse;table-layout:fixed}}
+.sub{{text-align:center;color:#888;font-size:13px;margin-bottom:10px}}
+.pick{{text-align:center;margin:10px 0}}
+.pick select{{font-size:16px;padding:8px 14px;border:1px solid #b8c4d4;border-radius:8px;background:#fff;color:#1a3a6b;font-weight:600}}
+table{{width:100%;border-collapse:collapse;table-layout:fixed;margin:0 auto}}
 th,td{{border:1px solid #d5dbe3;padding:6px 4px;vertical-align:middle;text-align:center;font-size:13px}}
 th{{background:#2b5aa0;color:#fff;font-weight:600}}
 .time{{font-size:11px;color:#444;background:#eceff4;width:56px}}
 .cname{{font-weight:700;font-size:13px;color:#1a3a6b}}
 .cinfo{{font-size:11px;color:#555;margin-top:2px;line-height:1.45}}
-@media(min-width:720px){{body{{max-width:900px;margin:0 auto}}.cname{{font-size:15px}}}}</style></head><body>
-<h1>我的课表·实时</h1><div class="sub">{info}</div>
-<table><tr><th class="time">节次</th>{header}</tr>{''.join(rows)}</table>
-<div class="sub" style="margin-top:10px">数据来源：学校接口 · 自动更新于 {now} · 网页托管 GitHub Pages</div>
+.empty{{text-align:center;color:#999;padding:40px 0;font-size:15px}}
+.pane{{display:none}}
+@media(min-width:720px){{body{{max-width:900px;margin:0 auto}}.cname{{font-size:15px}}</style></head><body>
+<h1>我的课表</h1><div class="sub">{esc(semester)} · 共 {MAX_WEEK} 周</div>
+<div class="pick"><label for="wk">选择周次：</label><select id="wk" onchange="switchWeek()">{options}</select></div>
+<div id="panes">{''.join(panes)}</div>
+<div class="sub" style="margin-top:12px">数据来源：学校接口 · 更新于 {now} · 托管 GitHub Pages</div>
+<script>
+function switchWeek() {{
+  var v = document.getElementById('wk').value;
+  var panes = document.querySelectorAll('.pane');
+  for (var i = 0; i < panes.length; i++) {{
+    panes[i].style.display = (panes[i].getAttribute('data-wk') === v) ? 'block' : 'none';
+  }}
+}}
+switchWeek();
+</script>
 </body></html>"""
 
 
@@ -165,16 +213,11 @@ def gh_api(method, path, body=None, timeout=30):
 
 
 def push_to_github(html):
-    # 1) 取当前 index.html 的 sha
     cur = gh_api("GET", f"/repos/{GH_REPO}/contents/{GH_PAGE}")
     old_sha = cur.get("sha")
-
-    # 2) 比对内容，无变化则跳过，避免无意义 commit
     if base64.b64decode(cur.get("content") or "").decode() == html:
         print("内容无变化，跳过推送")
         return "no-change"
-
-    # 3) 上传新内容
     body = {
         "message": "auto-update " + time.strftime("%Y-%m-%d %H:%M"),
         "content": base64.b64encode(html.encode("utf-8")).decode(),
@@ -185,19 +228,13 @@ def push_to_github(html):
 
 
 if __name__ == "__main__":
-    # 用法：python3 update_kebiao_gh.py [周数]；不填或填0 = 本周（接口空值默认本周）
-    week = ""
-    if len(sys.argv) > 1:
-        a = sys.argv[1].strip()
-        if a.isdigit() and 1 <= int(a) <= 30:
-            week = a
     try:
         token = login_and_get_token()
-        cur = fetch_curriculum(token, week=week)
-        if str(cur.get("code")) != "1":
-            raise RuntimeError("课表接口异常: " + json.dumps(cur, ensure_ascii=False)[:200])
-        html = render_html(cur, query_week=week)
+        weeks, semester, cur_wk = load_all_weeks(token)
+        html = render_page(weeks, semester, cur_wk)
+        with open("/tmp/kebiao_preview.html", "w", encoding="utf-8") as f:
+            f.write(html)  # 调试预览
         result = push_to_github(html)
-        print(("OK[" + week + "周] " if week else "OK[本周] ") + result)
+        print("OK", result, f"(默认第{cur_wk}周)")
     except Exception as e:
         print("ERR", e)
