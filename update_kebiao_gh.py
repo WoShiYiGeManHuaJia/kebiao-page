@@ -133,7 +133,7 @@ def table_html(parsed):
     rows = []
     for sec in range(1, 11):
         td = f'<td class="time">第{sec}节</td>'
-        for d in range(1, 6):
+        for d in range(1, 7):
             if (d, sec) in start:
                 p = parsed[start[(d, sec)]]
                 rs = max(len(p["secs"]), 1)
@@ -145,19 +145,19 @@ def table_html(parsed):
             elif (d, sec) not in cell:
                 td += "<td></td>"
         rows.append(f"<tr>{td}</tr>")
-    header = "".join(f"<th>{DAY_NAMES[d]}</th>" for d in range(1, 6))
+    header = "".join(f"<th>{DAY_NAMES[d]}</th>" for d in range(1, 7))
     return f'<table><tr><th class="time">节次</th>{header}</tr>{"".join(rows)}</table>'
 
 
 def render_page(weeks, semester, current_week):
-    """生成整页：下拉框 + 每周一个隐藏的表格面板 + 切换 JS"""
-    options = "".join(f'<option value="{w}"{" selected" if w == current_week else ""}>第 {w} 周</option>'
-                      for w in range(1, MAX_WEEK + 1))
+    """生成整页：自定义下拉弹窗 + 每周一个隐藏表格面板 + 切换 JS"""
+    opts = "".join(f'<button class="opt{" on" if w == current_week else ""}" data-wk="{w}" onclick="pick(event,{w})">{w}</button>'
+                   for w in range(1, MAX_WEEK + 1))
     panes = []
     for w in range(1, MAX_WEEK + 1):
         parsed = weeks.get(str(w), [])
         content = table_html(parsed) if parsed else '<div class="empty">本周暂无课程安排</div>'
-        panes.append(f'<div class="pane" data-wk="{w}">{content}</div>')
+        panes.append(f'<div class="pane" data-wk="{w}" style="display:none">{content}</div>')
     now = time.strftime("%Y-%m-%d %H:%M")
     return f"""<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1"><title>我的课表</title><style>
@@ -165,8 +165,16 @@ def render_page(weeks, semester, current_week):
 body{{font-family:-apple-system,'PingFang SC','Microsoft YaHei',sans-serif;background:#f5f7fa;padding:14px;color:#222}}
 h1{{font-size:20px;text-align:center;margin:6px 0 2px}}
 .sub{{text-align:center;color:#888;font-size:13px;margin-bottom:10px}}
-.pick{{text-align:center;margin:10px 0}}
-.pick select{{font-size:16px;padding:8px 14px;border:1px solid #b8c4d4;border-radius:8px;background:#fff;color:#1a3a6b;font-weight:600}}
+.pick{{text-align:center;margin:12px 0;position:relative;display:inline-block}}
+.pick .btn{{font-size:14px;padding:7px 16px;border:none;border-radius:14px;background:linear-gradient(135deg,#5a8de1,#7fb3f0);color:#fff;font-weight:600;outline:none;box-shadow:0 3px 8px rgba(90,141,225,.32);cursor:pointer;display:inline-block}}
+.pick .btn:active{{transform:scale(.97)}}
+.ddpanel{{position:absolute;top:calc(100% + 8px);left:50%;transform:translateX(-50%);background:#fff;border-radius:14px;box-shadow:0 8px 24px rgba(30,60,110,.18);padding:10px;z-index:99;display:none;width:290px}}
+.ddpanel.show{{display:block}}
+.ddpanel .gtitle{{font-size:12px;color:#8a97ab;text-align:center;margin-bottom:8px;font-weight:600}}
+.ddgrid{{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}}
+.opt{{font-size:13px;padding:6px 0;border:none;border-radius:9px;background:#eef3fb;color:#1a3a6b;font-weight:600;cursor:pointer;text-align:center;transition:background .15s,color .15s}}
+.opt:hover{{background:#5a8de1;color:#fff}}
+.opt.on{{background:linear-gradient(135deg,#5a8de1,#7fb3f0);color:#fff;box-shadow:0 2px 6px rgba(90,141,225,.35)}}
 table{{width:100%;border-collapse:collapse;table-layout:fixed;margin:0 auto}}
 th,td{{border:1px solid #d5dbe3;padding:6px 4px;vertical-align:middle;text-align:center;font-size:13px}}
 th{{background:#2b5aa0;color:#fff;font-weight:600}}
@@ -177,18 +185,29 @@ th{{background:#2b5aa0;color:#fff;font-weight:600}}
 .pane{{display:none}}
 @media(min-width:720px){{body{{max-width:900px;margin:0 auto}}.cname{{font-size:15px}}</style></head><body>
 <h1>我的课表</h1><div class="sub">{esc(semester)} · 共 {MAX_WEEK} 周</div>
-<div class="pick"><label for="wk">选择周次：</label><select id="wk" onchange="switchWeek()">{options}</select></div>
+<div style="text-align:center"><span class="pick">
+<button class="btn" id="wkBtn" onclick="toggleDd(event)">第 {current_week} 周 ▾</button>
+<div class="ddpanel" id="ddPanel"><div class="gtitle">选择周次</div><div class="ddgrid">{opts}</div></div>
+</span></div>
 <div id="panes">{''.join(panes)}</div>
 <div class="sub" style="margin-top:12px">数据来源：学校接口 · 更新于 {now} · 托管 GitHub Pages</div>
 <script>
-function switchWeek() {{
-  var v = document.getElementById('wk').value;
+function showWeek(n) {{
   var panes = document.querySelectorAll('.pane');
   for (var i = 0; i < panes.length; i++) {{
-    panes[i].style.display = (panes[i].getAttribute('data-wk') === v) ? 'block' : 'none';
+    panes[i].style.display = (panes[i].getAttribute('data-wk') === String(n)) ? 'block' : 'none';
   }}
+  document.getElementById('wkBtn').innerHTML = '第 ' + n + ' 周 ▾';
+  var opts = document.querySelectorAll('.opt');
+  for (var j = 0; j < opts.length; j++) {{
+    opts[j].className = 'opt' + ((parseInt(opts[j].getAttribute('data-wk')) === n) ? ' on' : '');
+  }}
+  document.getElementById('ddPanel').classList.remove('show');
 }}
-switchWeek();
+function toggleDd(e) {{ e.stopPropagation(); document.getElementById('ddPanel').classList.toggle('show'); }}
+function pick(e, n) {{ e.stopPropagation(); showWeek(n); }}
+document.addEventListener('click', function() {{ document.getElementById('ddPanel').classList.remove('show'); }});
+showWeek({current_week});
 </script>
 </body></html>"""
 
