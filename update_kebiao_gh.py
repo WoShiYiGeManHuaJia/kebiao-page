@@ -4,7 +4,7 @@
 运行一次即完成"拉取+渲染+推送"，把 index.html 覆盖到 kebiao-page 仓库，
 GitHub 自动重建，公网链接 woshiyigemanhuajia.github.io/kebiao-page 更新为最新。
 """
-import json, os, time, base64, subprocess, urllib.request, urllib.parse
+import json, os, sys, time, base64, subprocess, urllib.request, urllib.parse
 
 # ============ 配置（从本机配置文件读取，安全起见不写死在脚本里） ============
 USER_NO = ""
@@ -72,12 +72,12 @@ def login_and_get_token():
 
 
 def fetch_curriculum(token, week=""):
-    raw = http_get(BASE + "/student/curriculum?week=&kbjcmsid=",
+    raw = http_get(BASE + f"/student/curriculum?week={week}&kbjcmsid=",
                    headers={"Token": token, "schoolCode": SCHOOL_CODE}, timeout=15)
     return json.loads(raw.decode("utf-8", "ignore"))
 
 
-def render_html(cur):
+def render_html(cur, query_week=""):
     data = cur["data"][0]
     top = data["topInfo"][0]
     courses = data.get("courses") or []
@@ -120,7 +120,9 @@ def render_html(cur):
                 td += "<td></td>"
         rows.append(f"<tr>{td}</tr>")
     weeks_info = ', '.join(str(x) for x in sorted(set(w for p in parsed for w in p["weeks"]) or [1]))
-    info = (f'{esc(top.get("semesterId",""))} · 第{top.get("week","")}周 / 共{top.get("maxWeek","")}周 · '
+    wk_disp = query_week if query_week else top.get("week", "?")
+    week_label = ("第" + wk_disp + "周") if str(wk_disp).isdigit() else str(wk_disp)
+    info = (f'{esc(top.get("semesterId",""))} · {week_label} / 共{top.get("maxWeek","")}周 · '
             f'{esc(top.get("today",""))}（{esc(top.get("weekday",""))}） · 覆盖第{esc(weeks_info)}周')
     header = "".join(f"<th>{DAY_NAMES[d]}</th>" for d in range(1, 6))
     now = time.strftime("%Y-%m-%d %H:%M")
@@ -183,13 +185,19 @@ def push_to_github(html):
 
 
 if __name__ == "__main__":
+    # 用法：python3 update_kebiao_gh.py [周数]；不填或填0 = 本周（接口空值默认本周）
+    week = ""
+    if len(sys.argv) > 1:
+        a = sys.argv[1].strip()
+        if a.isdigit() and 1 <= int(a) <= 30:
+            week = a
     try:
         token = login_and_get_token()
-        cur = fetch_curriculum(token)
+        cur = fetch_curriculum(token, week=week)
         if str(cur.get("code")) != "1":
             raise RuntimeError("课表接口异常: " + json.dumps(cur, ensure_ascii=False)[:200])
-        html = render_html(cur)
+        html = render_html(cur, query_week=week)
         result = push_to_github(html)
-        print("OK", result)
+        print(("OK[" + week + "周] " if week else "OK[本周] ") + result)
     except Exception as e:
         print("ERR", e)
