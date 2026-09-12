@@ -46,6 +46,8 @@ if not GH_PAT:
 
 DAY_NAMES = {1: "周一", 2: "周二", 3: "周三", 4: "周四", 5: "周五", 6: "周六", 0: "周日"}
 COLORS = ["#e8f0fe", "#e6f4ea", "#fef7e0", "#fce8e6", "#f3e8fd", "#e0f7fa", "#fff3e0", "#e8f5e9"]
+COLOR_TINTS = {"#e8f0fe": "#5a8de1", "#e6f4ea": "#2f9e5f", "#fef7e0": "#e8a33d", "#fce8e6": "#dd5749",
+               "#f3e8fd": "#8f6bd8", "#e0f7fa": "#1fa8b8", "#fff3e0": "#ef8a2e", "#e8f5e9": "#43a047"}
 
 
 def esc(s):
@@ -138,7 +140,8 @@ def table_html(parsed):
                 p = parsed[start[(d, sec)]]
                 rs = max(len(p["secs"]), 1)
                 color = COLORS[start[(d, sec)] % len(COLORS)]
-                td += (f'<td rowspan="{rs}" class="cls" style="background:{color}"><div class="cname">{esc(p["name"])}</div>'
+                tint = COLOR_TINTS.get(color, "#5a8de1")
+                td += (f'<td rowspan="{rs}" class="cls" style="background:{color}" data-tint="{tint}"><div class="cname">{esc(p["name"])}</div>'
                        f'<div class="cinfo">{esc(p["time"])}</div>'
                        f'<div class="cinfo">{esc(p["bld"])}·{esc(p["room"])}</div>'
                        f'<div class="cinfo">{esc(p["teacher"])}</div></td>')
@@ -192,15 +195,18 @@ td.cls:active{{transform:scale(.97);box-shadow:inset 0 0 0 2px rgba(90,141,225,.
 .kbMask.show{{display:flex}}
 .kbCard{{background:#fff;border-radius:16px;width:100%;max-width:340px;box-shadow:0 12px 34px rgba(20,40,80,.3);overflow:hidden;animation:kbPop .18s ease-out}}
 @keyframes kbPop{{from{{transform:scale(.93);opacity:0}}to{{transform:scale(1);opacity:1}}}}
-.kbHead{{padding:16px 16px 13px;background:linear-gradient(135deg,#5a8de1,#7fb3f0);color:#fff;display:flex;align-items:flex-start;gap:10px}}
-.kbName{{flex:1;font-size:17px;font-weight:700;line-height:1.4;word-break:break-all}}
-.kbClose{{font-size:26px;line-height:.9;cursor:pointer;opacity:.85;padding:0 2px;flex:none}}
-.kbBody{{padding:6px 16px 16px;max-height:60vh;overflow-y:auto;-webkit-overflow-scrolling:touch}}
+.kbHead{{padding:18px 16px 15px;color:#fff;display:flex;align-items:center;gap:12px;border-bottom:1px solid rgba(255,255,255,.22)}}
+.kbIcon{{width:46px;height:46px;border-radius:14px;background:rgba(255,255,255,.24);color:#fff;font-size:20px;font-weight:800;display:flex;align-items:center;justify-content:center;flex:none;text-shadow:0 1px 3px rgba(0,0,0,.2)}}
+.kbName{{flex:1;font-size:18px;font-weight:700;line-height:1.35;word-break:break-all}}
+.kbClose{{width:30px;height:30px;border-radius:50%;background:rgba(255,255,255,.28);color:#fff;font-size:20px;line-height:30px;text-align:center;cursor:pointer;flex:none;transition:background .15s,transform .15s}}
+.kbClose:active{{background:rgba(255,255,255,.5);transform:scale(.9)}}
+.kbBody{{padding:12px 16px 16px;max-height:60vh;overflow-y:auto;-webkit-overflow-scrolling:touch}}
 body.kbLock{{overflow:hidden}}
-.kbRow{{display:flex;padding:10px 0;border-bottom:1px solid #eef1f6;font-size:14px;line-height:1.55}}
+.kbRow{{display:flex;align-items:flex-start;padding:11px 0;border-bottom:1px solid #eef1f6;font-size:14px;line-height:1.55}}
 .kbRow:last-child{{border-bottom:none}}
-.kbRow .k{{width:52px;flex:none;color:#8a97ab;font-size:13px}}
+.kbRow .k{{width:86px;flex:none;color:#98a4b6;font-size:13px}}
 .kbRow .v{{flex:1;color:#1a3a6b;font-weight:600;word-break:break-all}}
+.kbRow .ki{{font-size:15px;margin-right:3px}}
 @media(prefers-color-scheme:dark){{
   .kbCard{{background:#22303f}}
   .kbRow{{border-bottom-color:#33424f}}
@@ -215,7 +221,7 @@ body.kbLock{{overflow:hidden}}
 </span></div>
 <div id="panes">{''.join(panes)}</div>
 <div class="sub" style="margin-top:12px">数据来源：学校接口 · 更新于 {now} · 托管 GitHub Pages</div>
-<div class="kbMask" id="kbMask"><div class="kbCard"><div class="kbHead"><div class="kbName" id="kbName"></div><div class="kbClose" id="kbClose">&times;</div></div><div class="kbBody" id="kbBody"></div></div></div>
+<div class="kbMask" id="kbMask"><div class="kbCard"><div class="kbHead"><div class="kbIcon" id="kbIcon"></div><div class="kbName" id="kbName"></div><div class="kbClose" id="kbClose">&times;</div></div><div class="kbBody" id="kbBody"></div></div></div>
 <script>
 function showWeek(n) {{
   var panes = document.querySelectorAll('.pane');
@@ -242,9 +248,10 @@ var kbLast = 0, kbSX = 0, kbSY = 0;
 function kbEsc(s) {{
   return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }}
-function kbRow(k, v) {{
+function kbRow(icon, k, v) {{
   if (v === '' || v == null) return '';
-  return '<div class="kbRow"><div class="k">' + kbEsc(k) + '</div><div class="v">' + kbEsc(v) + '</div></div>';
+  return '<div class="kbRow"><div class="k"><span class="ki">' + icon +
+         '</span>' + kbEsc(k) + '</div><div class="v">' + kbEsc(v) + '</div></div>';
 }}
 /* 移动端可点性：直接给每个格子绑定 click+touchend，
    不依赖 document 委托（移动浏览器对非交互元素不冒泡 click） */
@@ -315,14 +322,20 @@ function kbAnnotate() {{
 }}
 function kbOpen(td) {{
   var nm = td.querySelector('.cname');
-  document.getElementById('kbName').textContent = nm ? nm.textContent.trim() : '课程';
+  var name = nm ? nm.textContent.trim() : '课程';
+  document.getElementById('kbName').textContent = name;
+  document.getElementById('kbIcon').textContent = name.charAt(0) || '课';
+  var tint = td.getAttribute('data-tint') || '#5a8de1';
+  var head = document.querySelector('.kbHead');
+  head.style.background = 'linear-gradient(135deg,' + tint + ',' + tint + 'e6)';
   var infos = td.querySelectorAll('.cinfo');
+  var ICONS = ['🕐', '🏫', '👤'];
   var h = '';
-  h += kbRow('周次', td.getAttribute('data-wk') ? ('第 ' + td.getAttribute('data-wk') + ' 周') : '');
-  h += kbRow('星期', td.getAttribute('data-day'));
-  h += kbRow('节次', td.getAttribute('data-sectext'));
+  h += kbRow('🗓️', '周次', td.getAttribute('data-wk') ? ('第 ' + td.getAttribute('data-wk') + ' 周') : '');
+  h += kbRow('📅', '星期', td.getAttribute('data-day'));
+  h += kbRow('⏰', '节次', td.getAttribute('data-sectext'));
   for (var i = 0; i < infos.length; i++) {{
-    h += kbRow(KB_INFO_LABELS[i] || ('信息' + (i + 1)), infos[i].textContent.trim());
+    h += kbRow(ICONS[i] || '📌', KB_INFO_LABELS[i] || ('信息' + (i + 1)), infos[i].textContent.trim());
   }}
   document.getElementById('kbBody').innerHTML = h;
   var mask = document.getElementById('kbMask');
