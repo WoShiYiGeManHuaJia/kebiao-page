@@ -26,7 +26,7 @@ th{background:#2b5aa0;color:#fff;font-weight:600}
 /* ── 课程详情弹窗（点击格子放大） ── */
 td.cls{cursor:pointer;transition:transform .12s,box-shadow .12s;-webkit-tap-highlight-color:transparent}
 td.cls:active{transform:scale(.97);box-shadow:inset 0 0 0 2px rgba(90,141,225,.45)}
-.kbMask{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(15,25,45,.48);z-index:200;display:none;align-items:center;justify-content:center;padding:20px}
+.kbMask{position:absolute;left:0;right:0;background:rgba(15,25,45,.48);z-index:200;display:none;align-items:center;justify-content:center;padding:20px}
 .kbMask.show{display:flex}
 .kbCard{background:#fff;border-radius:16px;width:100%;max-width:340px;box-shadow:0 12px 34px rgba(20,40,80,.3);overflow:hidden;animation:kbPop .18s ease-out}
 @keyframes kbPop{from{transform:scale(.93);opacity:0}to{transform:scale(1);opacity:1}}
@@ -184,9 +184,31 @@ function kbOpen(td) {
     h += kbRow(KB_INFO_LABELS[i] || ('信息' + (i + 1)), infos[i].textContent.trim());
   }
   document.getElementById('kbBody').innerHTML = h;
-  document.getElementById('kbMask').classList.add('show');
+  var mask = document.getElementById('kbMask');
+  kbPlace(mask);
+  mask.classList.add('show');
   document.body.classList.add('kbLock');
 }
+
+/* 定位弹窗：absolute + 当前滚动偏移，覆盖「当前视口」。
+   不用 fixed 是因为部分移动 WebView 对 fixed 解析有缺陷，
+   会把弹窗渲染到文档底部而不是盖住屏幕。 */
+function kbPlace(mask) {
+  var sy = window.pageYOffset || document.documentElement.scrollTop ||
+           document.body.scrollTop || 0;
+  var sx = window.pageXOffset || document.documentElement.scrollLeft ||
+           document.body.scrollLeft || 0;
+  var vh = window.innerHeight || document.documentElement.clientHeight || 600;
+  var vw = window.innerWidth || document.documentElement.clientWidth || 360;
+  mask.style.top = sy + 'px';
+  mask.style.left = sx + 'px';
+  mask.style.width = vw + 'px';
+  mask.style.height = vh + 'px';
+}
+window.addEventListener('resize', function() {
+  var mask = document.getElementById('kbMask');
+  if (mask && mask.classList.contains('show')) kbPlace(mask);
+});
 function kbClose() {
   document.getElementById('kbMask').classList.remove('show');
   document.body.classList.remove('kbLock');
