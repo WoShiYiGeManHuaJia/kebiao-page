@@ -183,7 +183,31 @@ th{{background:#2b5aa0;color:#fff;font-weight:600}}
 .cinfo{{font-size:11px;color:#555;margin-top:2px;line-height:1.45}}
 .empty{{text-align:center;color:#999;padding:40px 0;font-size:15px}}
 .pane{{display:none}}
-@media(min-width:720px){{body{{max-width:900px;margin:0 auto}}.cname{{font-size:15px}}</style></head><body>
+@media(min-width:720px){{body{{max-width:900px;margin:0 auto}}.cname{{font-size:15px}}</head><body>}}
+
+/* ── 课程详情弹窗（点击格子放大） ── */
+td.cls{{cursor:pointer;transition:transform .12s,box-shadow .12s;-webkit-tap-highlight-color:transparent}}
+td.cls:active{{transform:scale(.97);box-shadow:inset 0 0 0 2px rgba(90,141,225,.45)}}
+.kbMask{{position:absolute;left:0;right:0;background:rgba(15,25,45,.48);z-index:200;display:none;align-items:center;justify-content:center;padding:20px}}
+.kbMask.show{{display:flex}}
+.kbCard{{background:#fff;border-radius:16px;width:100%;max-width:340px;box-shadow:0 12px 34px rgba(20,40,80,.3);overflow:hidden;animation:kbPop .18s ease-out}}
+@keyframes kbPop{{from{{transform:scale(.93);opacity:0}}to{{transform:scale(1);opacity:1}}}}
+.kbHead{{padding:16px 16px 13px;background:linear-gradient(135deg,#5a8de1,#7fb3f0);color:#fff;display:flex;align-items:flex-start;gap:10px}}
+.kbName{{flex:1;font-size:17px;font-weight:700;line-height:1.4;word-break:break-all}}
+.kbClose{{font-size:26px;line-height:.9;cursor:pointer;opacity:.85;padding:0 2px;flex:none}}
+.kbBody{{padding:6px 16px 16px;max-height:60vh;overflow-y:auto;-webkit-overflow-scrolling:touch}}
+body.kbLock{{overflow:hidden}}
+.kbRow{{display:flex;padding:10px 0;border-bottom:1px solid #eef1f6;font-size:14px;line-height:1.55}}
+.kbRow:last-child{{border-bottom:none}}
+.kbRow .k{{width:52px;flex:none;color:#8a97ab;font-size:13px}}
+.kbRow .v{{flex:1;color:#1a3a6b;font-weight:600;word-break:break-all}}
+@media(prefers-color-scheme:dark){{
+  .kbCard{{background:#22303f}}
+  .kbRow{{border-bottom-color:#33424f}}
+  .kbRow .v{{color:#cfe0f5}}
+  .kbRow .k{{color:#8fa0b3}}
+}}
+</style></head><body>
 <h1>我的课表</h1><div class="sub">{esc(semester)} · 共 {MAX_WEEK} 周</div>
 <div style="text-align:center"><span class="pick">
 <button class="btn" id="wkBtn" onclick="toggleDd(event)">第 {current_week} 周 ▾</button>
@@ -191,6 +215,7 @@ th{{background:#2b5aa0;color:#fff;font-weight:600}}
 </span></div>
 <div id="panes">{''.join(panes)}</div>
 <div class="sub" style="margin-top:12px">数据来源：学校接口 · 更新于 {now} · 托管 GitHub Pages</div>
+<div class="kbMask" id="kbMask"><div class="kbCard"><div class="kbHead"><div class="kbName" id="kbName"></div><div class="kbClose" id="kbClose">&times;</div></div><div class="kbBody" id="kbBody"></div></div></div>
 <script>
 function showWeek(n) {{
   var panes = document.querySelectorAll('.pane');
@@ -208,6 +233,126 @@ function toggleDd(e) {{ e.stopPropagation(); document.getElementById('ddPanel').
 function pick(e, n) {{ e.stopPropagation(); showWeek(n); }}
 document.addEventListener('click', function() {{ document.getElementById('ddPanel').classList.remove('show'); }});
 showWeek({current_week});
+
+/* ── 课程详情弹窗 ── */
+var KB_DAYS = ['', '周一', '周二', '周三', '周四', '周五', '周六', '周日'];
+var KB_INFO_LABELS = ['时间', '教室', '教师'];
+var kbLast = 0, kbSX = 0, kbSY = 0;
+
+function kbEsc(s) {{
+  return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}}
+function kbRow(k, v) {{
+  if (v === '' || v == null) return '';
+  return '<div class="kbRow"><div class="k">' + kbEsc(k) + '</div><div class="v">' + kbEsc(v) + '</div></div>';
+}}
+/* 移动端可点性：直接给每个格子绑定 click+touchend，
+   不依赖 document 委托（移动浏览器对非交互元素不冒泡 click） */
+function kbBind(td) {{
+  td.style.cursor = 'pointer';
+  td.setAttribute('role', 'button');
+  td.setAttribute('tabindex', '0');
+  td.addEventListener('touchstart', function(e) {{
+    var t = e.touches[0];
+    if (t) {{ kbSX = t.clientX; kbSY = t.clientY; }}
+  }}, {{ passive: true }});
+  td.addEventListener('touchend', function(e) {{
+    var t = e.changedTouches[0];
+    if (t && (Math.abs(t.clientX - kbSX) > 10 || Math.abs(t.clientY - kbSY) > 10)) return;
+    var now = Date.now();
+    if (now - kbLast < 400) return;
+    kbLast = now;
+    if (e.stopPropagation) e.stopPropagation();
+    if (e.preventDefault) e.preventDefault();
+    kbOpen(td);
+  }});
+  td.addEventListener('click', function(e) {{
+    var now = Date.now();
+    if (now - kbLast < 400) return;
+    kbLast = now;
+    if (e.stopPropagation) e.stopPropagation();
+    kbOpen(td);
+  }});
+}}
+/* 用「网格占位」还原真实星期/节次（表格含 rowspan，按索引会错位） */
+function kbAnnotate() {{
+  var panes = document.querySelectorAll('.pane');
+  for (var p = 0; p < panes.length; p++) {{
+    var pane = panes[p];
+    var wk = pane.getAttribute('data-wk');
+    var tb = pane.querySelector('table');
+    if (!tb) continue;
+    var trs = tb.querySelectorAll('tr');
+    var grid = [], ri = 0;
+    for (var i = 0; i < trs.length; i++) {{
+      var cells = trs[i].children;
+      if (!cells.length || cells[0].tagName === 'TH') continue;
+      if (!grid[ri]) grid[ri] = [];
+      var ci = 0;
+      for (var j = 0; j < cells.length; j++) {{
+        var td = cells[j];
+        while (grid[ri] && grid[ri][ci]) ci++;
+        var rs = parseInt(td.getAttribute('rowspan') || '1', 10);
+        var cs = parseInt(td.getAttribute('colspan') || '1', 10);
+        for (var r = ri; r < ri + rs; r++) {{
+          if (!grid[r]) grid[r] = [];
+          for (var c = ci; c < ci + cs; c++) grid[r][c] = true;
+        }}
+        if (td.className && String(td.className).indexOf('cls') >= 0) {{
+          var sec = ri + 1;
+          td.setAttribute('data-wk', wk == null ? '' : wk);
+          td.setAttribute('data-day', KB_DAYS[ci] || '');
+          td.setAttribute('data-sec', String(sec));
+          td.setAttribute('data-span', String(rs));
+          td.setAttribute('data-sectext', rs > 1 ? ('第' + sec + '-' + (sec + rs - 1) + '节') : ('第' + sec + '节'));
+          kbBind(td);
+        }}
+        ci += cs;
+      }}
+      ri++;
+    }}
+  }}
+}}
+function kbOpen(td) {{
+  var nm = td.querySelector('.cname');
+  document.getElementById('kbName').textContent = nm ? nm.textContent.trim() : '课程';
+  var infos = td.querySelectorAll('.cinfo');
+  var h = '';
+  h += kbRow('周次', td.getAttribute('data-wk') ? ('第 ' + td.getAttribute('data-wk') + ' 周') : '');
+  h += kbRow('星期', td.getAttribute('data-day'));
+  h += kbRow('节次', td.getAttribute('data-sectext'));
+  for (var i = 0; i < infos.length; i++) {{
+    h += kbRow(KB_INFO_LABELS[i] || ('信息' + (i + 1)), infos[i].textContent.trim());
+  }}
+  document.getElementById('kbBody').innerHTML = h;
+  var mask = document.getElementById('kbMask');
+  kbPlace(mask);
+  mask.classList.add('show');
+  document.body.classList.add('kbLock');
+}}
+/* absolute + 滚动偏移覆盖当前视口（部分移动 WebView 的 fixed 有缺陷） */
+function kbPlace(mask) {{
+  var sy = window.pageYOffset || document.documentElement.scrollTop || document.body.scrollTop || 0;
+  var sx = window.pageXOffset || document.documentElement.scrollLeft || document.body.scrollLeft || 0;
+  var vh = window.innerHeight || document.documentElement.clientHeight || 600;
+  var vw = window.innerWidth || document.documentElement.clientWidth || 360;
+  mask.style.top = sy + 'px';
+  mask.style.left = sx + 'px';
+  mask.style.width = vw + 'px';
+  mask.style.height = vh + 'px';
+}}
+function kbClose() {{
+  document.getElementById('kbMask').classList.remove('show');
+  document.body.classList.remove('kbLock');
+}}
+window.addEventListener('resize', function() {{
+  var mask = document.getElementById('kbMask');
+  if (mask && mask.classList.contains('show')) kbPlace(mask);
+}});
+document.getElementById('kbClose').onclick = function(e) {{ e.stopPropagation(); kbClose(); }};
+document.getElementById('kbMask').onclick = function(e) {{ if (e.target === this) kbClose(); }};
+document.addEventListener('keydown', function(e) {{ if (e.key === 'Escape') kbClose(); }});
+kbAnnotate();
 </script>
 </body></html>"""
 
