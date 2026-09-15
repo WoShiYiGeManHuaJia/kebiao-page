@@ -18,11 +18,12 @@ jobs:
           python-version: '3.11'
       - name: pull and render latest
         env:
-          KB_USER: ${{ secrets.KB_USER }}
-          KB_PWD: ${{ secrets.KB_PWD }}
-          KB_SCH: ${{ secrets.KB_SCH }}
-        run: python render.py
-      - name: commit and push if changed
+          KB_USER_NO: ${{ secrets.KB_USER }}
+          KB_PWD_ENC: ${{ secrets.KB_PWD }}
+          KB_SCHOOL_CODE: ${{ secrets.KB_SCH }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python update_kebiao_gh.py
+      - name: commit if local file changed
         run: |
           git config user.name "marvis-bot"
           git config user.email "marvis-bot@users.noreply.github.com"

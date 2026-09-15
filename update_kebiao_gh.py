@@ -45,7 +45,88 @@ elif os.environ.get("GH_TOKEN"):
 if not GH_PAT:
     raise SystemExit("未找到 GitHub token：请写入 ~/.gh_token 或设置 GH_TOKEN 环境变量")
 
-DAY_NAMES = {1: "周一", 2: "周二", 3: "周三", 4: "周四", 5: "周五", 6: "周六", 0: "周日"}
+DAY_NAMES = {1: "周一", 2: "周二", 3: "周三", 4: "周四", 5: "周五", 6: "周六", 7: "周日", 0: "周日"}
+
+# ────────────────────────────────────────────────────────────────
+# 2026-2027-1 学期放假调休规则
+#   本段为人工确认的固定安排，自动更新只会应用它、不会改动它。
+#   如需变更（改日期/取消），须由本人明确要求后再改。
+# ────────────────────────────────────────────────────────────────
+HOLIDAY_RULES = {
+    "enabled": True,
+    # 放假区间（含首含尾），区间内的日期一律不上课
+    "holidays": [("2026-09-25", "2026-10-07")],
+    # 调课补课：「实际日期」上「源日期」那天的课
+    "makeup": {
+        "2026-09-20": "2026-09-28",   # 周日 补 周一
+        "2026-10-10": "2026-09-29",   # 周六 补 周二
+        "2026-10-17": "2026-09-30",   # 周六 补 周三
+        "2026-10-24": "2026-10-06",   # 周六 补 周二
+        "2026-10-31": "2026-10-07",   # 周六 补 周三
+    },
+}
+
+
+def _kb_date(sv):
+    y, m, d = (int(x) for x in str(sv).split("-"))
+    return date(y, m, d)
+
+
+def apply_holiday_rules(weeks, w1mon):
+    """按真实日期重排每周课程。
+
+    规则：
+      1. 落在放假区间的日期 -> 当天无课（整周若全在假期内则该周为空）
+      2. 属于调课日的日期    -> 当天改上「源日期」那天的课
+      3. 其余日期            -> 保持该周该星期的原始课程
+    返回 (新的 weeks, 每周调休说明 dict)
+    """
+    if not HOLIDAY_RULES.get("enabled"):
+        return weeks, {}
+
+    hol = [(_kb_date(a), _kb_date(b)) for a, b in HOLIDAY_RULES.get("holidays") or []]
+    mk = {}
+    for k, v in (HOLIDAY_RULES.get("makeup") or {}).items():
+        try:
+            mk[_kb_date(k)] = _kb_date(v)
+        except Exception:
+            pass
+
+    def is_holiday(D):
+        return any(a <= D <= b for a, b in hol)
+
+    def courses_on(D):
+        """取某个真实日期原本（未调休前）的课程"""
+        delta = (D - w1mon).days
+        wk = delta // 7 + 1
+        wd = delta % 7 + 1          # 1=周一 ... 7=周日
+        if wk < 1 or wk > MAX_WEEK:
+            return []
+        return [dict(p) for p in (weeks.get(str(wk)) or []) if int(p.get("day", 0)) == wd]
+
+    new_weeks, notes = {}, {}
+    for w in range(1, MAX_WEEK + 1):
+        mon = w1mon + timedelta(weeks=w - 1)
+        rows, wk_notes = [], []
+        for i in range(7):                      # 周一..周日
+            D = mon + timedelta(days=i)
+            wd = i + 1
+            if is_holiday(D):
+                continue                        # 放假：当天无课
+            if D in mk:
+                src = mk[D]
+                for p in courses_on(src):
+                    q = dict(p)
+                    q["day"] = wd               # 挪到实际这一天的列
+                    rows.append(q)
+                wk_notes.append("%d/%d 上 %d/%d 的课" % (D.month, D.day, src.month, src.day))
+            else:
+                rows.extend(courses_on(D))
+        new_weeks[str(w)] = rows
+        if wk_notes:
+            notes[str(w)] = "；".join(wk_notes)
+    return new_weeks, notes
+
 # 时段划分（依据实际作息：上午 08:00-11:40 / 下午 14:30-18:10 / 晚上 19:30-21:10）
 def seg_of(sec):
     if sec <= 4:
@@ -142,6 +223,13 @@ def table_html(parsed, week_monday=None):
             cell[(p["day"], sec)] = i
         if p["secs"]:
             start[(p["day"], p["secs"][0])] = i
+    # 列数：默认周一~周六；若本周存在周日课程（调休补课）才扩展到 7 列，
+    # 避免无谓地挤压课名宽度（每列仅约 41px）
+    max_col = 6
+    for p in parsed:
+        if int(p.get("day", 0) or 0) >= 7:
+            max_col = 7
+            break
     rows = []
     prev_seg = None
     for sec in range(1, 11):
@@ -151,7 +239,7 @@ def table_html(parsed, week_monday=None):
               f'<div class="sec-no">第{sec}节</div>'
               f'<div class="sec-tag">{seg_name}</div></td>')
         prev_seg = seg_key
-        for d in range(1, 7):
+        for d in range(1, max_col + 1):
             if (d, sec) in start:
                 p = parsed[start[(d, sec)]]
                 rs = max(len(p["secs"]), 1)
@@ -177,17 +265,37 @@ def render_page(weeks, semester, current_week):
     _today = date.today()
     _this_mon = _today - timedelta(days=_today.weekday())
     _w1mon = _this_mon - timedelta(weeks=max(int(current_week) - 1, 0))
+    weeks, _hd_notes = apply_holiday_rules(weeks, _w1mon)
+    # 假期区间（用于页面提示）
+    _hd_ranges = []
+    for _a, _b in (HOLIDAY_RULES.get("holidays") or []):
+        try:
+            _hd_ranges.append((_kb_date(_a), _kb_date(_b)))
+        except Exception:
+            pass
     panes = []
     for w in range(1, MAX_WEEK + 1):
         parsed = weeks.get(str(w), [])
         _mon = _w1mon + timedelta(weeks=w - 1)
-        content = table_html(parsed, _mon) if parsed else '<div class="empty">本周暂无课程安排</div>'
+        # 统计本周落在假期的天数
+        _hd_days = sum(1 for _i in range(7)
+                       if any(_ra <= (_mon + timedelta(days=_i)) <= _rb for _ra, _rb in _hd_ranges))
+        _tip = ""
+        if _hd_days >= 7:
+            _tip = ('<div class="hdTip hdFull">放假调休 · 本周无课</div>')
+        elif _hd_days > 0:
+            _tip = ('<div class="hdTip">含 %d 天放假，已按调休安排调整</div>' % _hd_days)
+        if _hd_notes.get(str(w)):
+            _tip += ('<div class="hdNote">%s</div>' % esc(_hd_notes[str(w)]))
         if parsed:
-            content = '<div class="kbGlass">' + content + '</div>'
+            content = '<div class="kbGlass">' + _tip + table_html(parsed, _mon) + '</div>'
+        else:
+            content = _tip + ('<div class="empty">%s</div>'
+                              % ("放假调休 · 本周无课" if _hd_days >= 7 else "本周暂无课程安排"))
         panes.append(f'<div class="pane" data-wk="{w}" data-mon="{_mon.year}-{_mon.month}-{_mon.day}" style="display:none">{content}</div>')
     _cur_mon = _w1mon + timedelta(weeks=max(int(current_week) - 1, 0))
     _dock_items = []
-    for _d in range(1, 7):
+    for _d in range(1, 8):
         _dt = _cur_mon + timedelta(days=_d - 1)
         _dock_items.append(
             '<button class="dockItem" data-col="' + str(_d) + '" onclick="setFocusDay(' + str(_d) + ')">'
@@ -311,7 +419,7 @@ h1{{font-size:21px;text-align:center;margin:6px 0 2px;color:#0b1220}}
 }}
 /* 滑块：苹果分段控件的胶囊拇指 */
 .dockThumb{{position:absolute;top:4px;left:calc(var(--tw) + 4px);height:calc(100% - 8px);
-  width:calc((100% - var(--tw) - 8px) / 6);border-radius:999px;z-index:0;
+  width:calc((100% - var(--tw) - 8px) / 7);border-radius:999px;z-index:0;
   background:linear-gradient(135deg,#3b82f6,#60a5fa);
   box-shadow:0 4px 14px rgba(59,130,246,.42), inset 0 1px 0 rgba(255,255,255,.45);
   transition:left .30s cubic-bezier(.34,1.4,.5,1), opacity .2s;opacity:0}}
@@ -427,6 +535,18 @@ td.cls.now::after{{content:'';position:absolute;inset:2px;border-radius:12px;
   padding:3px 0;letter-spacing:.5px;box-shadow:0 2px 7px rgba(244,63,94,.4)}}
 
 .empty{{text-align:center;color:#64748b;padding:44px 0;font-size:15px}}
+/* 假期调休提示条 */
+.hdTip{{margin:0 0 8px;padding:7px 12px;border-radius:14px;font-size:12px;font-weight:700;
+  text-align:center;color:#92400e;
+  background:linear-gradient(135deg,rgba(254,240,138,.92),rgba(253,230,138,.88));
+  border:1px solid rgba(251,191,36,.55);
+  box-shadow:0 4px 12px rgba(180,120,20,.14)}}
+.hdTip.hdFull{{color:#9a3412;
+  background:linear-gradient(135deg,rgba(254,215,170,.94),rgba(253,186,116,.9));
+  border:1px solid rgba(251,146,60,.55)}}
+.hdNote{{margin:0 0 8px;padding:6px 12px;border-radius:12px;font-size:11.5px;
+  text-align:center;color:#1e40af;background:rgba(219,234,254,.85);
+  border:1px solid rgba(147,197,253,.55)}}
 .pane{{display:none}}
 
 /* 弹窗：更圆润 */
@@ -824,9 +944,9 @@ function kbDockDates(wk) {{
 function kbSetThumb(col) {{
   var th = document.getElementById('dockThumb');
   if (!th) return;
-  if (col < 1 || col > 6) {{ th.classList.remove('on'); return; }}
+  if (col < 1 || col > 7) {{ th.classList.remove('on'); return; }}
   th.classList.add('on');
-  th.style.left = 'calc(var(--tw) + 4px + (100% - var(--tw) - 8px) * ' + (col - 1) + ' / 6)';
+  th.style.left = 'calc(var(--tw) + 4px + (100% - var(--tw) - 8px) * ' + (col - 1) + ' / 7)';
 }}
 function kbClearMark() {{
   var cls = ['now', 'today'], i, j;
