@@ -192,7 +192,16 @@ def render_page(weeks, semester, current_week):
         content = table_html(parsed, _mon) if parsed else '<div class="empty">本周暂无课程安排</div>'
         if parsed:
             content = '<div class="kbGlass">' + content + '</div>'
-        panes.append(f'<div class="pane" data-wk="{w}" style="display:none">{content}</div>')
+        panes.append(f'<div class="pane" data-wk="{w}" data-mon="{_mon.year}-{_mon.month}-{_mon.day}" style="display:none">{content}</div>')
+    _cur_mon = _w1mon + timedelta(weeks=max(int(current_week) - 1, 0))
+    _dock_items = []
+    for _d in range(1, 7):
+        _dt = _cur_mon + timedelta(days=_d - 1)
+        _dock_items.append(
+            '<button class="dockItem" data-col="' + str(_d) + '" onclick="setFocusDay(' + str(_d) + ')">'
+            '<b>' + DAY_NAMES[_d] + '</b><i>' + str(_dt.month) + '/' + str(_dt.day) + '</i><span class="dot"></span></button>')
+    dock_html = ('<div class="dock" id="dock"><div class="dockThumb" id="dockThumb"></div>'
+                 + "".join(_dock_items) + "</div>")
     now = time.strftime("%Y-%m-%d %H:%M")
     return f"""<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1"><title>我的课表</title><style>
@@ -253,6 +262,38 @@ h1{{font-size:21px;text-align:center;margin:6px 0 2px;color:#0b1220}}
   border:1px solid rgba(255,255,255,.85);font-weight:700;
   box-shadow:0 2px 8px rgba(31,38,135,.08)}}
 .legend i{{width:9px;height:9px;border-radius:999px;display:inline-block}}
+
+/* ── 苹果 Dock 风格日期选择条 ── */
+.dock{{position:relative;display:flex;align-items:stretch;margin:12px 0 8px;padding:4px;
+  border-radius:999px;
+  background:rgba(255,255,255,.55);
+  -webkit-backdrop-filter:blur(24px) saturate(185%);
+  backdrop-filter:blur(24px) saturate(185%);
+  border:1px solid rgba(255,255,255,.82);
+  box-shadow:0 10px 30px rgba(31,38,135,.13), inset 0 1px 0 rgba(255,255,255,.92)}}
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){{
+  .dock{{background:rgba(255,255,255,.88)}}
+}}
+/* 滑块：苹果分段控件的胶囊拇指 */
+.dockThumb{{position:absolute;top:4px;left:4px;height:calc(100% - 8px);
+  width:calc((100% - 8px) / 6);border-radius:999px;z-index:0;
+  background:linear-gradient(135deg,#3b82f6,#60a5fa);
+  box-shadow:0 4px 14px rgba(59,130,246,.42), inset 0 1px 0 rgba(255,255,255,.45);
+  transition:left .30s cubic-bezier(.34,1.4,.5,1), opacity .2s;opacity:0}}
+.dockThumb.on{{opacity:1}}
+.dockItem{{position:relative;z-index:1;flex:1 1 0;min-width:0;border:none;background:transparent;
+  padding:7px 2px 8px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;
+  font-family:inherit;color:#5b6b82;transition:color .22s;-webkit-tap-highlight-color:transparent}}
+.dockItem b{{font-size:11.5px;font-weight:800;line-height:1.1;letter-spacing:.2px}}
+.dockItem i{{font-size:10px;font-style:normal;font-weight:600;opacity:.72;line-height:1.1}}
+.dockItem.on{{color:#fff}}
+.dockItem.on i{{opacity:.92}}
+.dockItem:active{{opacity:.7}}
+/* 今天的小圆点 */
+.dockItem .dot{{width:4px;height:4px;border-radius:999px;background:#f59e0b;margin-top:1px;
+  display:none}}
+.dockItem.isToday .dot{{display:block}}
+.dockItem.on .dot{{background:#fff}}
 
 /* 表格：separate 模式让圆角生效 */
 .kbGlass{{border-radius:22px;overflow:hidden;
@@ -382,6 +423,9 @@ body.kbLock{{overflow:hidden}}
   .kbRow .v{{color:#cfe0f5}} .kbRow .k{{color:#8fa0b3}}
   .kbRow{{border-bottom-color:rgba(148,163,184,.2)}}
   td.today{{background:rgba(59,130,246,.24) !important}}
+  .dock{{background:rgba(30,41,59,.72);border-color:rgba(148,163,184,.24)}}
+  .dockItem{{color:#94a3b8}}
+  .dockItem.on{{color:#fff}}
   .opt{{background:rgba(51,65,85,.85);color:#cfe0f5}}
   .legend span{{background:rgba(30,41,59,.7);color:#cbd5e1;border-color:rgba(148,163,184,.22)}}
   tr.seg-am td:not(.cls):not(.time){{background:rgba(120,80,20,.22)}}
@@ -399,6 +443,7 @@ body.kbLock{{overflow:hidden}}
   <span><i style="background:#f97316"></i>下午 5-8节</span>
   <span><i style="background:#6366f1"></i>晚上 9-10节</span>
 </div>
+{dock_html}
 <div id="panes">{''.join(panes)}</div>
 <div class="sub" style="margin-top:12px">数据来源：学校接口 · 更新于 {now} · 托管 GitHub Pages</div>
 <div class="kbMask" id="kbMask"><div class="kbCard"><div class="kbHead"><div class="kbIcon" id="kbIcon"></div><div class="kbName" id="kbName"></div><div class="kbClose" id="kbClose">&times;</div></div><div class="kbBody" id="kbBody"></div></div></div>
@@ -414,6 +459,9 @@ function showWeek(n) {{
     opts[j].className = 'opt' + ((parseInt(opts[j].getAttribute('data-wk')) === n) ? ' on' : '');
   }}
   document.getElementById('ddPanel').classList.remove('show');
+  KB_WK = n;
+  kbDockDates(n);
+  kbMarkNow();
 }}
 function toggleDd(e) {{ e.stopPropagation(); document.getElementById('ddPanel').classList.toggle('show'); }}
 function pick(e, n) {{ e.stopPropagation(); showWeek(n); }}
@@ -580,11 +628,47 @@ document.getElementById('kbMask').onclick = function(e) {{ if (e.target === this
 document.addEventListener('keydown', function(e) {{ if (e.key === 'Escape') kbClose(); }});
 kbAnnotate();
 
-/* ── 今天列高亮 + 当前课节脉动标记 ── */
+/* ── Dock 日期条 + 今天列高亮 + 当前课节脉动 ── */
+var KB_MANUAL = false;   /* 用户是否手动选过某天 */
+var KB_FOCUS = null;     /* 当前聚焦的列 1..6 */
+var KB_WK = {current_week};   /* 当前显示周次 */
+
 function kbMin(s) {{
   var m = /^(\d{{1,2}}):(\d{{2}})$/.exec((s || '').trim());
   if (!m) return -1;
   return parseInt(m[1], 10) * 60 + parseInt(m[2], 10);
+}}
+function kbRealCol() {{
+  var js = new Date().getDay();            /* 0=周日 .. 6=周六 */
+  return (js === 0) ? 7 : js;              /* 1=周一 .. 6=周六；周日=7（无列） */
+}}
+/* 依据该周周一日期推算某天的 M/D */
+function kbDateOf(ymd, n) {{
+  if (!ymd) return '';
+  var p = String(ymd).split('-');
+  if (p.length < 3) return '';
+  var d = new Date(parseInt(p[0], 10), parseInt(p[1], 10) - 1, parseInt(p[2], 10));
+  d.setDate(d.getDate() + n);
+  return (d.getMonth() + 1) + '/' + d.getDate();
+}}
+/* 切周时刷新 Dock 上的日期 */
+function kbDockDates(wk) {{
+  var pane = document.querySelector('.pane[data-wk="' + wk + '"]');
+  var mon = pane ? pane.getAttribute('data-mon') : '';
+  var items = document.querySelectorAll('.dockItem');
+  for (var i = 0; i < items.length; i++) {{
+    var c = parseInt(items[i].getAttribute('data-col'), 10) || 1;
+    var dt = kbDateOf(mon, c - 1);
+    var it = items[i].querySelector('i');
+    if (it && dt) it.textContent = dt;
+  }}
+}}
+function kbSetThumb(col) {{
+  var th = document.getElementById('dockThumb');
+  if (!th) return;
+  if (col < 1 || col > 6) {{ th.classList.remove('on'); return; }}
+  th.classList.add('on');
+  th.style.left = 'calc(4px + (100% - 8px) * ' + (col - 1) + ' / 6)';
 }}
 function kbClearMark() {{
   var cls = ['now', 'today'], i, j;
@@ -599,22 +683,30 @@ function kbClearMark() {{
 }}
 function kbMarkNow() {{
   kbClearMark();
-  var d = new Date();
-  var jsDay = d.getDay();                       /* 0=周日 .. 6=周六 */
-  var kbDay = (jsDay === 0) ? 7 : jsDay;        /* 课表列：1=周一 .. 6=周六 */
-  var nowMin = d.getHours() * 60 + d.getMinutes();
-  if (kbDay >= 1 && kbDay <= 6) {{
-    var ns = document.querySelectorAll('th[data-col="' + kbDay + '"], td[data-col="' + kbDay + '"]');
+  var real = kbRealCol();
+  if (!KB_MANUAL) KB_FOCUS = (real >= 1 && real <= 6) ? real : null;
+
+  /* 1) 聚焦列高亮 */
+  if (KB_FOCUS) {{
+    var ns = document.querySelectorAll('th[data-col="' + KB_FOCUS + '"], td[data-col="' + KB_FOCUS + '"]');
     for (var i = 0; i < ns.length; i++) ns[i].classList.add('today');
-    var ths = document.querySelectorAll('th[data-col="' + kbDay + '"]');
-    for (var t = 0; t < ths.length; t++) {{
-      var tg = document.createElement('span');
-      tg.className = 'todayTag';
-      tg.textContent = '今天';
-      ths[t].appendChild(tg);
+    /* 只有真实今天才挂"今天"角标 */
+    if (KB_FOCUS === real) {{
+      var ths = document.querySelectorAll('th[data-col="' + KB_FOCUS + '"]');
+      for (var t = 0; t < ths.length; t++) {{
+        var tg = document.createElement('span');
+        tg.className = 'todayTag';
+        tg.textContent = '今天';
+        ths[t].appendChild(tg);
+      }}
     }}
-    /* 当前时间落在哪节课 */
-    var cs = document.querySelectorAll('td.cls[data-t0][data-col="' + kbDay + '"]');
+  }}
+
+  /* 2) 当前课节（仅真实今天） */
+  var d = new Date();
+  var nowMin = d.getHours() * 60 + d.getMinutes();
+  if (real >= 1 && real <= 6) {{
+    var cs = document.querySelectorAll('td.cls[data-t0][data-col="' + real + '"]');
     for (var k = 0; k < cs.length; k++) {{
       var a = kbMin(cs[k].getAttribute('data-t0'));
       var b = kbMin(cs[k].getAttribute('data-t1'));
@@ -628,7 +720,22 @@ function kbMarkNow() {{
       }}
     }}
   }}
+
+  /* 3) 同步 Dock 选中态 + 今天圆点 */
+  var items = document.querySelectorAll('.dockItem');
+  for (var q = 0; q < items.length; q++) {{
+    var c = parseInt(items[q].getAttribute('data-col'), 10);
+    items[q].className = 'dockItem' + (c === KB_FOCUS ? ' on' : '') + (c === real ? ' isToday' : '');
+  }}
+  kbSetThumb(KB_FOCUS || 0);
 }}
+/* 点击 Dock 项：手动聚焦某一天 */
+function setFocusDay(col) {{
+  KB_MANUAL = true;
+  KB_FOCUS = col;
+  kbMarkNow();
+}}
+kbDockDates(KB_WK);
 kbMarkNow();
 setInterval(kbMarkNow, 60000);
 </script>
