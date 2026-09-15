@@ -146,7 +146,7 @@ def table_html(parsed):
     for sec in range(1, 11):
         seg_key, seg_name = seg_of(sec)
         seg_start = " seg-start" if seg_key != prev_seg else ""
-        td = (f'<td class="time s-{seg_key}{seg_start}">'
+        td = (f'<td class="time s-{seg_key}{seg_start}" data-col="0">'
               f'<div class="sec-no">第{sec}节</div>'
               f'<div class="sec-tag">{seg_name}</div></td>')
         prev_seg = seg_key
@@ -156,12 +156,13 @@ def table_html(parsed):
                 rs = max(len(p["secs"]), 1)
                 color = COLORS[start[(d, sec)] % len(COLORS)]
                 tint = COLOR_TINTS.get(color, "#5a8de1")
-                td += (f'<td rowspan="{rs}" class="cls" style="background:{color};--tc:{tint}" data-tint="{tint}"><div class="cname">{esc(p["name"])}</div>'
+                t0, t1 = (p.get("time", "").split("-") + ["", ""])[:2]
+                td += (f'<td rowspan="{rs}" class="cls" data-col="{d}" data-t0="{esc(t0.strip())}" data-t1="{esc(t1.strip())}" style="background:{color};--tc:{tint}" data-tint="{tint}"><div class="cname">{esc(p["name"])}</div>'
                        f'<div class="cinfo">{esc(p["time"])}</div>'
                        f'<div class="cinfo">{esc(p["bld"])}·{esc(p["room"])}</div>'
                        f'<div class="cinfo">{esc(p["teacher"])}</div></td>')
             elif (d, sec) not in cell:
-                td += "<td></td>"
+                td += '<td data-col="%d"></td>' % d
         rows.append(f'<tr class="seg-{seg_key}">{td}</tr>')
     header = "".join(f'<th data-col="{d}">{DAY_NAMES[d]}</th>' for d in range(1, 7))
     return f'<table><tr><th class="time">节次</th>{header}</tr>{"".join(rows)}</table>'
@@ -175,109 +176,191 @@ def render_page(weeks, semester, current_week):
     for w in range(1, MAX_WEEK + 1):
         parsed = weeks.get(str(w), [])
         content = table_html(parsed) if parsed else '<div class="empty">本周暂无课程安排</div>'
+        if parsed:
+            content = '<div class="kbGlass">' + content + '</div>'
         panes.append(f'<div class="pane" data-wk="{w}" style="display:none">{content}</div>')
     now = time.strftime("%Y-%m-%d %H:%M")
     return f"""<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1"><title>我的课表</title><style>
 *{{margin:0;padding:0;box-sizing:border-box}}
-body{{font-family:-apple-system,'PingFang SC','Microsoft YaHei',sans-serif;
-  background:#f5f7fa;padding:14px;color:#222;-webkit-text-size-adjust:100%}}
-h1{{font-size:20px;text-align:center;margin:6px 0 2px;color:#1e293b}}
-.sub{{text-align:center;color:#888;font-size:13px;margin-bottom:10px}}
+:root{{--line:rgba(148,163,184,.28);--ink:#1e293b}}
+html{{-webkit-text-size-adjust:100%}}
+body{{
+  font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei',sans-serif;
+  color:var(--ink);padding:14px;min-height:100vh;
+  /* 柔和光斑背景（玻璃质感的底） */
+  background-color:#eef2f8;
+  background-image:
+    radial-gradient(760px 460px at 8% -6%, rgba(99,102,241,.30), transparent 62%),
+    radial-gradient(680px 420px at 96% 4%, rgba(236,72,153,.22), transparent 60%),
+    radial-gradient(720px 480px at 46% 104%, rgba(14,165,233,.26), transparent 62%);
+  background-attachment:fixed;
+}}
+h1{{font-size:21px;text-align:center;margin:6px 0 2px;color:#0f172a;
+  text-shadow:0 1px 0 rgba(255,255,255,.6)}}
+.sub{{text-align:center;color:#64748b;font-size:13px;margin-bottom:10px}}
+
+/* ── 玻璃卡片基类 ── */
+.glass{{
+  background:rgba(255,255,255,.55);
+  -webkit-backdrop-filter:blur(22px) saturate(180%);
+  backdrop-filter:blur(22px) saturate(180%);
+  border:1px solid rgba(255,255,255,.72);
+  box-shadow:0 10px 34px rgba(31,38,135,.13), inset 0 1px 0 rgba(255,255,255,.9);
+}}
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){{
+  .glass{{background:rgba(255,255,255,.9)}}
+}}
 
 /* 周次选择 */
 .pick{{text-align:center;margin:12px 0;position:relative;display:inline-block}}
-.pick .btn{{font-size:14px;padding:7px 16px;border:none;border-radius:14px;
-  background:linear-gradient(135deg,#5a8de1,#7fb3f0);color:#fff;font-weight:600;
-  outline:none;box-shadow:0 3px 8px rgba(90,141,225,.32);cursor:pointer;display:inline-block}}
+.pick .btn{{font-size:14px;padding:8px 18px;border:none;border-radius:16px;
+  background:linear-gradient(135deg,rgba(90,141,225,.92),rgba(127,179,240,.92));color:#fff;
+  font-weight:600;outline:none;cursor:pointer;display:inline-block;
+  -webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);
+  box-shadow:0 6px 18px rgba(90,141,225,.34), inset 0 1px 0 rgba(255,255,255,.5)}}
 .pick .btn:active{{transform:scale(.97)}}
 .ddpanel{{position:absolute;top:calc(100% + 8px);left:50%;transform:translateX(-50%);
-  background:#fff;border-radius:14px;box-shadow:0 8px 24px rgba(30,60,110,.18);
-  padding:10px;z-index:99;display:none;width:290px}}
+  border-radius:16px;padding:10px;z-index:99;display:none;width:290px;
+  background:rgba(255,255,255,.72);
+  -webkit-backdrop-filter:blur(26px) saturate(180%);backdrop-filter:blur(26px) saturate(180%);
+  border:1px solid rgba(255,255,255,.8);
+  box-shadow:0 14px 38px rgba(30,60,110,.2), inset 0 1px 0 rgba(255,255,255,.9)}}
 .ddpanel.show{{display:block}}
-.ddpanel .gtitle{{font-size:12px;color:#8a97ab;text-align:center;margin-bottom:8px;font-weight:600}}
+.ddpanel .gtitle{{font-size:12px;color:#64748b;text-align:center;margin-bottom:8px;font-weight:700}}
 .ddgrid{{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}}
-.opt{{font-size:13px;padding:6px 0;border:none;border-radius:9px;background:#eef3fb;
-  color:#1a3a6b;font-weight:600;cursor:pointer;text-align:center;transition:background .15s,color .15s}}
+.opt{{font-size:13px;padding:7px 0;border:none;border-radius:10px;background:rgba(238,243,251,.85);
+  color:#1a3a6b;font-weight:700;cursor:pointer;text-align:center;transition:all .15s}}
 .opt:hover{{background:#5a8de1;color:#fff}}
-.opt.on{{background:linear-gradient(135deg,#5a8de1,#7fb3f0);color:#fff;box-shadow:0 2px 6px rgba(90,141,225,.35)}}
+.opt.on{{background:linear-gradient(135deg,#5a8de1,#7fb3f0);color:#fff;
+  box-shadow:0 3px 10px rgba(90,141,225,.4)}}
 
 /* 时段图例 */
-.legend{{display:flex;justify-content:center;gap:14px;margin:10px 0 2px;flex-wrap:wrap}}
-.legend span{{display:flex;align-items:center;gap:5px;font-size:12px;color:#64748b}}
-.legend i{{width:10px;height:10px;border-radius:3px;display:inline-block}}
+.legend{{display:flex;justify-content:center;gap:12px;margin:10px 0 2px;flex-wrap:wrap}}
+.legend span{{display:flex;align-items:center;gap:5px;font-size:12px;color:#475569;
+  background:rgba(255,255,255,.5);padding:4px 9px;border-radius:11px;
+  border:1px solid rgba(255,255,255,.7);font-weight:600}}
+.legend i{{width:9px;height:9px;border-radius:3px;display:inline-block}}
 
-/* 表格 */
-table{{width:100%;border-collapse:separate;border-spacing:0;table-layout:fixed;margin:0 auto;
-  background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 10px rgba(30,60,110,.08)}}
-th,td{{border:1px solid #e2e8f0;padding:5px 3px;vertical-align:middle;text-align:center;font-size:12px}}
-th{{background:#2b5aa0;color:#fff;font-weight:600;font-size:12px;padding:7px 2px}}
+/* 表格玻璃外框（圆角+模糊载体） */
+.kbGlass{{border-radius:18px;overflow:hidden;
+  background:rgba(255,255,255,.52);
+  -webkit-backdrop-filter:blur(24px) saturate(180%);backdrop-filter:blur(24px) saturate(180%);
+  border:1px solid rgba(255,255,255,.72);
+  box-shadow:0 12px 36px rgba(31,38,135,.14), inset 0 1px 0 rgba(255,255,255,.92)}}
+table{{width:100%;border-collapse:collapse;table-layout:fixed;background:transparent}}
+th,td{{border:1px solid var(--line);padding:5px 3px;vertical-align:middle;
+  text-align:center;font-size:12px}}
+th{{background:rgba(43,90,160,.82);color:#fff;font-weight:600;font-size:12px;padding:8px 2px;
+  -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}}
 
-/* 时间列：按时段着色（左侧色条 + 文字色） */
-.time{{width:52px;background:#f8fafc;padding:4px 2px}}
+/* 时间列：按时段着色 */
+.time{{width:52px;background:rgba(248,250,252,.62);padding:4px 2px}}
 .time .sec-no{{font-size:11px;font-weight:700;color:#334155}}
-.time .sec-tag{{font-size:10px;margin-top:1px;font-weight:700}}
-.time.s-am{{background:#fffbeb;box-shadow:inset 3px 0 0 #f59e0b}}
-.time.s-am .sec-tag{{color:#f59e0b}}
-.time.s-pm{{background:#fff7ed;box-shadow:inset 3px 0 0 #f97316}}
-.time.s-pm .sec-tag{{color:#f97316}}
-.time.s-nt{{background:#eef2ff;box-shadow:inset 3px 0 0 #6366f1}}
-.time.s-nt .sec-tag{{color:#6366f1}}
+.time .sec-tag{{font-size:10px;margin-top:1px;font-weight:800}}
+.time.s-am{{background:rgba(255,251,235,.78);box-shadow:inset 3px 0 0 #f59e0b}}
+.time.s-am .sec-tag{{color:#d97706}}
+.time.s-pm{{background:rgba(255,247,237,.78);box-shadow:inset 3px 0 0 #f97316}}
+.time.s-pm .sec-tag{{color:#ea580c}}
+.time.s-nt{{background:rgba(238,242,255,.8);box-shadow:inset 3px 0 0 #6366f1}}
+.time.s-nt .sec-tag{{color:#4f46e5}}
 
-/* 时段分隔：首行粗线 + 空格子染时段底色 */
-tr.seg-start td{{border-top:2px solid #94a3b8}}
-tr.seg-am td:not(.cls){{background:#fffbeb}}
-tr.seg-pm td:not(.cls){{background:#fff7ed}}
-tr.seg-nt td:not(.cls){{background:#eef2ff}}
+/* 时段底色（空格子） */
+tr.seg-start td{{border-top:2px solid rgba(100,116,139,.5)}}
+tr.seg-am td:not(.cls){{background:rgba(255,251,235,.5)}}
+tr.seg-pm td:not(.cls){{background:rgba(255,247,237,.5)}}
+tr.seg-nt td:not(.cls){{background:rgba(238,242,255,.55)}}
 
-/* 课程块：左侧同色深条，强化辨识 */
+/* 课程块：左侧同色深条 */
 td.cls{{position:relative;cursor:pointer;transition:transform .12s,box-shadow .12s;
   -webkit-tap-highlight-color:transparent;padding:6px 3px}}
 td.cls::before{{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;
-  background:var(--tc,#3b82f6);border-radius:2px 0 0 2px}}
-td.cls:active{{transform:scale(.97);box-shadow:inset 0 0 0 2px rgba(90,141,225,.45)}}
-.cname{{font-weight:700;font-size:12px;color:#1e293b;line-height:1.3;padding-left:5px}}
+  background:var(--tc,#3b82f6);border-radius:2px 0 0 2px;opacity:.9}}
+td.cls:active{{transform:scale(.97)}}
+.cname{{font-weight:700;font-size:12px;color:#0f172a;line-height:1.3;padding-left:5px}}
 .cinfo{{font-size:10.5px;color:#475569;margin-top:2px;line-height:1.45;padding-left:5px}}
-.empty{{text-align:center;color:#999;padding:40px 0;font-size:15px}}
+
+/* ── 今天列高亮 ── */
+tr td.today:not(.cls){{background:rgba(59,130,246,.10)}}
+th.today{{background:linear-gradient(135deg,#1e40af,#3b82f6) !important}}
+th.today .todayTag{{display:block;margin-top:2px;font-size:9px;font-weight:800;
+  color:#fff;background:rgba(255,255,255,.28);border-radius:6px;padding:1px 0;
+  letter-spacing:.5px}}
+td.today{{box-shadow:inset 0 0 0 1px rgba(59,130,246,.18)}}
+
+/* ── 正在上课 ── */
+td.cls.now{{animation:kbPulse 1.7s ease-in-out infinite;z-index:2}}
+@keyframes kbPulse{{
+  0%,100%{{box-shadow:0 0 0 2px rgba(244,63,94,.9), 0 4px 14px rgba(244,63,94,.28)}}
+  50%{{box-shadow:0 0 0 3px rgba(244,63,94,.95), 0 8px 22px rgba(244,63,94,.42)}}
+}}
+.nowBadge{{margin-top:4px;margin-left:5px;margin-right:5px;font-size:9.5px;font-weight:800;
+  color:#fff;background:linear-gradient(135deg,#f43f5e,#fb7185);border-radius:7px;
+  padding:2px 0;letter-spacing:.5px;box-shadow:0 2px 6px rgba(244,63,94,.35)}}
+
+.empty{{text-align:center;color:#64748b;padding:40px 0;font-size:15px}}
 .pane{{display:none}}
 
-/* 课程详情弹窗 */
-.kbMask{{position:absolute;left:0;right:0;background:rgba(15,25,45,.48);z-index:200;
-  display:none;align-items:center;justify-content:center;padding:20px}}
+/* 课程详情弹窗（玻璃） */
+.kbMask{{position:absolute;left:0;right:0;background:rgba(15,25,45,.42);z-index:200;
+  display:none;align-items:center;justify-content:center;padding:20px;
+  -webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}}
 .kbMask.show{{display:flex}}
-.kbCard{{background:#fff;border-radius:16px;width:100%;max-width:340px;
-  box-shadow:0 12px 34px rgba(20,40,80,.3);overflow:hidden;animation:kbPop .18s ease-out}}
-@keyframes kbPop{{from{{transform:scale(.93);opacity:0}}to{{transform:scale(1);opacity:1}}}}
+.kbCard{{border-radius:20px;width:100%;max-width:340px;overflow:hidden;
+  animation:kbPop .2s cubic-bezier(.2,.9,.3,1.2);
+  background:rgba(255,255,255,.78);
+  -webkit-backdrop-filter:blur(30px) saturate(180%);backdrop-filter:blur(30px) saturate(180%);
+  border:1px solid rgba(255,255,255,.85);
+  box-shadow:0 20px 50px rgba(20,40,80,.28), inset 0 1px 0 rgba(255,255,255,.9)}}
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){{
+  .kbCard{{background:#fff}}
+}}
+@keyframes kbPop{{from{{transform:scale(.92);opacity:0}}to{{transform:scale(1);opacity:1}}}}
 .kbHead{{padding:18px 16px 15px;color:#fff;display:flex;align-items:center;gap:12px;
-  border-bottom:1px solid rgba(255,255,255,.22)}}
-.kbIcon{{width:46px;height:46px;border-radius:14px;background:rgba(255,255,255,.24);color:#fff;
+  border-bottom:1px solid rgba(255,255,255,.25)}}
+.kbIcon{{width:46px;height:46px;border-radius:15px;background:rgba(255,255,255,.26);color:#fff;
   font-size:20px;font-weight:800;display:flex;align-items:center;justify-content:center;flex:none;
-  text-shadow:0 1px 3px rgba(0,0,0,.2)}}
+  text-shadow:0 1px 3px rgba(0,0,0,.22)}}
 .kbName{{flex:1;font-size:18px;font-weight:700;line-height:1.35;word-break:break-all}}
-.kbClose{{width:30px;height:30px;border-radius:50%;background:rgba(255,255,255,.28);color:#fff;
+.kbClose{{width:30px;height:30px;border-radius:50%;background:rgba(255,255,255,.3);color:#fff;
   font-size:20px;line-height:30px;text-align:center;cursor:pointer;flex:none;
   transition:background .15s,transform .15s}}
-.kbClose:active{{background:rgba(255,255,255,.5);transform:scale(.9)}}
+.kbClose:active{{background:rgba(255,255,255,.55);transform:scale(.9)}}
 .kbBody{{padding:12px 16px 16px;max-height:60vh;overflow-y:auto;-webkit-overflow-scrolling:touch}}
 body.kbLock{{overflow:hidden}}
-.kbRow{{display:flex;align-items:flex-start;padding:11px 0;border-bottom:1px solid #eef1f6;
+.kbRow{{display:flex;align-items:flex-start;padding:11px 0;border-bottom:1px solid rgba(148,163,184,.22);
   font-size:14px;line-height:1.55}}
 .kbRow:last-child{{border-bottom:none}}
-.kbRow .k{{width:86px;flex:none;color:#98a4b6;font-size:13px}}
+.kbRow .k{{width:86px;flex:none;color:#94a3b8;font-size:13px}}
 .kbRow .v{{flex:1;color:#1a3a6b;font-weight:600;word-break:break-all}}
 .kbRow .ki{{font-size:15px;margin-right:3px}}
 
 @media(min-width:720px){{
-  body{{max-width:900px;margin:0 auto}}
+  body{{max-width:920px;margin:0 auto}}
   .cname{{font-size:14px}}
   .cinfo{{font-size:12px}}
   .time{{width:64px}}
+  th,td{{font-size:13px}}
 }}
 @media(prefers-color-scheme:dark){{
-  .kbCard{{background:#22303f}}
-  .kbRow{{border-bottom-color:#33424f}}
+  body{{background-color:#0b1220;color:#e2e8f0;
+    background-image:
+      radial-gradient(760px 460px at 8% -6%, rgba(99,102,241,.34), transparent 62%),
+      radial-gradient(680px 420px at 96% 4%, rgba(236,72,153,.24), transparent 60%),
+      radial-gradient(720px 480px at 46% 104%, rgba(14,165,233,.28), transparent 62%)}}
+  h1{{color:#f1f5f9;text-shadow:none}}
+  .sub,.legend span{{color:#94a3b8}}
+  .kbCard{{background:rgba(30,41,59,.82);border-color:rgba(148,163,184,.22)}}
+  .kbRow{{border-bottom-color:rgba(148,163,184,.2)}}
   .kbRow .v{{color:#cfe0f5}}
   .kbRow .k{{color:#8fa0b3}}
+  .kbGlass{{background:rgba(30,41,59,.55);border-color:rgba(148,163,184,.22)}}
+  .time{{background:rgba(30,41,59,.6)}}
+  .time .sec-no{{color:#cbd5e1}}
+  .opt{{background:rgba(51,65,85,.8);color:#cfe0f5}}
+  .legend span{{background:rgba(30,41,59,.5);border-color:rgba(148,163,184,.2)}}
+  .cname{{color:#f1f5f9}}
+  .cinfo{{color:#94a3b8}}
 }}
 </style></head><body>
 <h1>我的课表</h1><div class="sub">{esc(semester)} · 共 {MAX_WEEK} 周</div>
@@ -470,6 +553,58 @@ document.getElementById('kbClose').onclick = function(e) {{ e.stopPropagation();
 document.getElementById('kbMask').onclick = function(e) {{ if (e.target === this) kbClose(); }};
 document.addEventListener('keydown', function(e) {{ if (e.key === 'Escape') kbClose(); }});
 kbAnnotate();
+
+/* ── 今天列高亮 + 当前课节脉动标记 ── */
+function kbMin(s) {{
+  var m = /^(\d{{1,2}}):(\d{{2}})$/.exec((s || '').trim());
+  if (!m) return -1;
+  return parseInt(m[1], 10) * 60 + parseInt(m[2], 10);
+}}
+function kbClearMark() {{
+  var cls = ['now', 'today'], i, j;
+  for (j = 0; j < cls.length; j++) {{
+    var ns = document.querySelectorAll('.' + cls[j]);
+    for (i = 0; i < ns.length; i++) ns[i].classList.remove(cls[j]);
+  }}
+  var bs = document.querySelectorAll('.nowBadge, .todayTag');
+  for (i = 0; i < bs.length; i++) {{
+    if (bs[i].parentNode) bs[i].parentNode.removeChild(bs[i]);
+  }}
+}}
+function kbMarkNow() {{
+  kbClearMark();
+  var d = new Date();
+  var jsDay = d.getDay();                       /* 0=周日 .. 6=周六 */
+  var kbDay = (jsDay === 0) ? 7 : jsDay;        /* 课表列：1=周一 .. 6=周六 */
+  var nowMin = d.getHours() * 60 + d.getMinutes();
+  if (kbDay >= 1 && kbDay <= 6) {{
+    var ns = document.querySelectorAll('th[data-col="' + kbDay + '"], td[data-col="' + kbDay + '"]');
+    for (var i = 0; i < ns.length; i++) ns[i].classList.add('today');
+    var ths = document.querySelectorAll('th[data-col="' + kbDay + '"]');
+    for (var t = 0; t < ths.length; t++) {{
+      var tg = document.createElement('span');
+      tg.className = 'todayTag';
+      tg.textContent = '今天';
+      ths[t].appendChild(tg);
+    }}
+    /* 当前时间落在哪节课 */
+    var cs = document.querySelectorAll('td.cls[data-t0][data-col="' + kbDay + '"]');
+    for (var k = 0; k < cs.length; k++) {{
+      var a = kbMin(cs[k].getAttribute('data-t0'));
+      var b = kbMin(cs[k].getAttribute('data-t1'));
+      if (a < 0 || b < 0) continue;
+      if (nowMin >= a && nowMin <= b) {{
+        cs[k].classList.add('now');
+        var sp = document.createElement('div');
+        sp.className = 'nowBadge';
+        sp.textContent = '正在上课';
+        cs[k].appendChild(sp);
+      }}
+    }}
+  }}
+}}
+kbMarkNow();
+setInterval(kbMarkNow, 60000);
 </script>
 </body></html>"""
 
