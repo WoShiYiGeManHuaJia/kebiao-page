@@ -372,16 +372,19 @@ tr.seg-pm td:not(.cls):not(.time){{background:rgba(255,247,237,.6)}}
 tr.seg-nt td:not(.cls):not(.time){{background:rgba(238,242,255,.65)}}
 
 /* 课程块：真圆角卡片 */
-td.cls{{position:relative;cursor:pointer;padding:6px 4px 6px 8px;
-  -webkit-tap-highlight-color:transparent;background-clip:padding-box}}
+td.cls{{position:relative;cursor:pointer;padding:7px 5px 7px 10px;
+  -webkit-tap-highlight-color:transparent;background-clip:padding-box;
+  border-radius:14px;background-clip:border-box;
+  border-right-color:transparent;border-bottom-color:transparent;
+  box-shadow:0 2px 8px rgba(20,40,80,.10), inset 0 1px 0 rgba(255,255,255,.55)}}
 td.cls .cname{{line-height:1.32;font-size:12.5px;word-break:break-all}}
 td.cls .cinfo{{font-size:10.5px;margin-top:1px;line-height:1.4;word-break:break-all}}
 /* 只显示"时间"，地点/教师收起 → 点开弹窗看，课程条显著变短 */
 td.cls .cinfo:nth-of-type(n+2){{display:none}}
 /* 右下角轻提示：可点开看详情 */
-td.cls::after{{content:'';position:absolute;right:3px;bottom:3px;width:0;height:0;
-  border-left:4px solid transparent;border-bottom:4px solid rgba(15,23,42,.22)}}
-td.cls::before{{content:'';position:absolute;left:3px;top:5px;bottom:5px;width:3.5px;
+td.cls::after{{content:'';position:absolute;right:6px;bottom:5px;width:0;height:0;
+  border-left:4px solid transparent;border-bottom:4px solid rgba(15,23,42,.20)}}
+td.cls::before{{content:'';position:absolute;left:5px;top:6px;bottom:6px;width:4px;
   background:var(--tc,#3b82f6);border-radius:999px}}
 td.cls:active{{opacity:.82}}
 .cname{{font-weight:800;font-size:12px;color:#0b1220;line-height:1.32;padding-left:6px}}
