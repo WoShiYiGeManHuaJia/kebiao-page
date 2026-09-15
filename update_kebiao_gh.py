@@ -5,6 +5,7 @@
 运行一次即完成"拉取全部周+渲染+推送"。
 """
 import json, os, sys, time, base64, subprocess, urllib.request, urllib.parse
+from datetime import date, timedelta
 
 # ============ 配置（从本机配置文件读取，安全起见不写死在脚本里） ============
 USER_NO = ""
@@ -133,7 +134,7 @@ def load_all_weeks(token):
     return weeks, semester, current_week
 
 
-def table_html(parsed):
+def table_html(parsed, week_monday=None):
     """由某周课程列表渲染出表格 HTML"""
     cell, start = {}, {}
     for i, p in enumerate(parsed):
@@ -164,7 +165,15 @@ def table_html(parsed):
             elif (d, sec) not in cell:
                 td += '<td data-col="%d"></td>' % d
         rows.append(f'<tr class="seg-{seg_key}">{td}</tr>')
-    header = "".join(f'<th data-col="{d}">{DAY_NAMES[d]}</th>' for d in range(1, 7))
+    if week_monday is None:
+        header = "".join(f'<th data-col="{d}">{DAY_NAMES[d]}</th>' for d in range(1, 7))
+    else:
+        parts = []
+        for d in range(1, 7):
+            dt = week_monday + timedelta(days=d - 1)
+            parts.append(f'<th data-col="{d}">{DAY_NAMES[d]}'
+                         f'<span class="dateTag">{dt.month}/{dt.day}</span></th>')
+        header = "".join(parts)
     return f'<table><tr><th class="time">节次</th>{header}</tr>{"".join(rows)}</table>'
 
 
@@ -172,10 +181,15 @@ def render_page(weeks, semester, current_week):
     """生成整页：自定义下拉弹窗 + 每周一个隐藏表格面板 + 切换 JS"""
     opts = "".join(f'<button class="opt{" on" if w == current_week else ""}" data-wk="{w}" onclick="pick(event,{w})">{w}</button>'
                    for w in range(1, MAX_WEEK + 1))
+    # 依据"今天"与当前周次反推第 1 周周一，进而算出每一周的日期
+    _today = date.today()
+    _this_mon = _today - timedelta(days=_today.weekday())
+    _w1mon = _this_mon - timedelta(weeks=max(int(current_week) - 1, 0))
     panes = []
     for w in range(1, MAX_WEEK + 1):
         parsed = weeks.get(str(w), [])
-        content = table_html(parsed) if parsed else '<div class="empty">本周暂无课程安排</div>'
+        _mon = _w1mon + timedelta(weeks=w - 1)
+        content = table_html(parsed, _mon) if parsed else '<div class="empty">本周暂无课程安排</div>'
         if parsed:
             content = '<div class="kbGlass">' + content + '</div>'
         panes.append(f'<div class="pane" data-wk="{w}" style="display:none">{content}</div>')
@@ -252,8 +266,11 @@ h1{{font-size:21px;text-align:center;margin:6px 0 2px;color:#0b1220}}
 table{{width:100%;border-collapse:separate;border-spacing:0;table-layout:fixed;background:transparent}}
 th,td{{border-right:1px solid var(--line);border-bottom:1px solid var(--line);
   padding:6px 3px;vertical-align:middle;text-align:center;font-size:12px}}
-th{{background:rgba(43,90,160,.90);color:#fff;font-weight:700;font-size:12px;padding:9px 2px;
-  border-bottom:none}}
+th{{background:rgba(43,90,160,.90);color:#fff;font-weight:700;font-size:12px;padding:8px 2px 7px;
+  border-bottom:none;line-height:1.25}}
+th .dateTag{{display:block;margin-top:2px;font-size:9.5px;font-weight:600;
+  color:rgba(255,255,255,.82);letter-spacing:.2px}}
+th.today .dateTag{{color:#fff;font-weight:800}}
 tr:last-child td{{border-bottom:none}}
 td:last-child,th:last-child{{border-right:none}}
 
@@ -288,9 +305,9 @@ td.cls:active{{opacity:.82}}
 /* ── 今天列：强对比高亮 ── */
 th.today{{background:linear-gradient(135deg,#1d4ed8,#3b82f6) !important;
   position:relative}}
-th.today .todayTag{{display:block;margin:3px auto 0;width:78%;font-size:9.5px;font-weight:800;
-  color:#fff;background:rgba(255,255,255,.32);border-radius:999px;padding:2px 0;
-  letter-spacing:1px;box-shadow:0 1px 3px rgba(0,0,0,.12)}}
+th.today .todayTag{{display:block;margin:3px auto 0;width:82%;font-size:9px;font-weight:800;
+  color:#fff;background:rgba(255,255,255,.34);border-radius:999px;padding:2px 0;
+  letter-spacing:1px;box-shadow:0 1px 3px rgba(0,0,0,.14)}}
 td.today{{background:rgba(59,130,246,.16) !important;
   box-shadow:inset 2px 0 0 rgba(37,99,235,.55), inset -2px 0 0 rgba(37,99,235,.55)}}
 td.today.cls{{background:rgba(59,130,246,.20) !important}}
