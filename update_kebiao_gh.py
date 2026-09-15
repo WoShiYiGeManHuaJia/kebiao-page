@@ -376,6 +376,7 @@ td.cls{{position:relative;cursor:pointer;padding:7px 5px 7px 10px;
   -webkit-tap-highlight-color:transparent;background-clip:padding-box;
   border-radius:14px;background-clip:border-box;
   border-right-color:transparent;border-bottom-color:transparent;
+  transition:transform .26s cubic-bezier(.34,1.35,.5,1), filter .26s ease, box-shadow .26s ease;
   box-shadow:0 2px 8px rgba(20,40,80,.10), inset 0 1px 0 rgba(255,255,255,.55)}}
 td.cls .cname{{line-height:1.32;font-size:12.5px;word-break:break-all}}
 td.cls .cinfo{{font-size:10.5px;margin-top:1px;line-height:1.4;word-break:break-all}}
@@ -396,10 +397,19 @@ th.today{{background:linear-gradient(135deg,#1d4ed8,#3b82f6) !important;
 th.today .todayTag{{display:block;margin:3px auto 0;width:82%;font-size:9px;font-weight:800;
   color:#fff;background:rgba(255,255,255,.34);border-radius:999px;padding:2px 0;
   letter-spacing:1px;box-shadow:0 1px 3px rgba(0,0,0,.14)}}
-td.today{{background:rgba(59,130,246,.16) !important;
+td.today:not(.cls){{background:rgba(59,130,246,.13) !important;
   box-shadow:inset 2px 0 0 rgba(37,99,235,.55), inset -2px 0 0 rgba(37,99,235,.55)}}
-td.today.cls{{background:rgba(59,130,246,.20) !important}}
-tr td.today:first-of-type{{box-shadow:inset -2px 0 0 rgba(37,99,235,.55)}}
+/* 当天课程块：保留课程本色并加深一点点🤏，同时微放大 —— 不再被蓝色冲淡 */
+td.today.cls{{
+  filter:saturate(1.28) brightness(.93);
+  transform:scale(1.035);
+  z-index:3;
+  box-shadow:0 6px 16px rgba(20,40,80,.18), inset 0 1px 0 rgba(255,255,255,.6);
+  transition:transform .26s cubic-bezier(.34,1.35,.5,1), filter .26s ease, box-shadow .26s ease;
+}}
+td.today.cls .cname{{font-weight:800}}
+td.today.cls::before{{width:5px;left:5px}}
+tr td.today:not(.cls):first-of-type{{box-shadow:inset -2px 0 0 rgba(37,99,235,.55)}}
 /* 今天列第一个/最后一个格子的上下封口 */
 table tr:first-child th.today{{border-top-left-radius:0}}
 td.today{{font-weight:700}}
