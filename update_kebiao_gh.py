@@ -447,6 +447,26 @@ body.kbLock{{overflow:hidden}}
 .kbRow .v{{flex:1;color:#1a3a6b;font-weight:700;word-break:break-all}}
 .kbRow .ki{{font-size:15px;margin-right:3px}}
 
+/* 上课地点：置顶高亮大卡片，一眼可见 */
+.kbRoom{{display:flex;align-items:center;gap:11px;margin:2px 0 13px;padding:12px;
+  border-radius:18px;border:1.5px solid;
+  box-shadow:0 8px 22px rgba(20,40,80,.14), inset 0 1px 0 rgba(255,255,255,.92);
+  animation:rmIn .34s cubic-bezier(.34,1.4,.5,1)}}
+@keyframes rmIn{{from{{opacity:0;transform:translateY(-6px) scale(.96)}}to{{opacity:1;transform:none}}}}
+.kbRoom .rmIcon{{width:38px;height:38px;border-radius:12px;flex:none;display:flex;
+  align-items:center;justify-content:center;font-size:19px;
+  box-shadow:0 3px 10px rgba(20,40,80,.22);animation:rmPulse 2.2s ease-in-out infinite}}
+@keyframes rmPulse{{0%,100%{{transform:scale(1)}}50%{{transform:scale(1.09)}}}}
+.kbRoom .rmMain{{flex:1;min-width:0}}
+.kbRoom .rmLabel{{font-size:10.5px;font-weight:800;letter-spacing:1.2px;color:#64748b;margin-bottom:1px}}
+.kbRoom .rmCode{{font-size:23px;font-weight:900;line-height:1.14;letter-spacing:.3px;word-break:break-all}}
+.kbRoom .rmSub{{font-size:11.5px;color:#475569;margin-top:3px;line-height:1.35;word-break:break-all}}
+.kbRoom .rmCopy{{flex:none;font-size:11px;font-weight:800;color:#fff;padding:6px 11px;
+  border-radius:999px;background:rgba(15,23,42,.32);cursor:pointer;-webkit-tap-highlight-color:transparent}}
+.kbRoom .rmCopy:active{{transform:scale(.9);background:rgba(15,23,42,.5)}}
+/* 其余信息弱化，衬托地点 */
+.kbRow.dim .v{{font-weight:600;color:#334155}}
+
 @media(min-width:720px){{
   body{{max-width:920px;margin:0 auto}}
   .cname{{font-size:14px}} .cinfo{{font-size:12px}}
@@ -463,6 +483,10 @@ body.kbLock{{overflow:hidden}}
   .sub{{color:#94a3b8}}
   .kbGlass{{background:rgba(30,41,59,.80);border-color:rgba(148,163,184,.22)}}
   .kbCard{{background:rgba(30,41,59,.88);border-color:rgba(148,163,184,.22)}}
+  .kbRoom{{box-shadow:0 8px 22px rgba(0,0,0,.34)}}
+  .kbRoom .rmLabel{{color:#94a3b8}} .kbRoom .rmSub{{color:#cbd5e1}}
+  .kbRoom .rmCopy{{background:rgba(255,255,255,.22)}}
+  .kbRow.dim .v{{color:#cbd5e1}}
   .time{{background:rgba(30,41,59,.85)}} .time .sec-no{{color:#e2e8f0}}
   .cname{{color:#f1f5f9}} .cinfo{{color:#94a3b8}}
   .kbRow .v{{color:#cfe0f5}} .kbRow .k{{color:#8fa0b3}}
@@ -572,11 +596,59 @@ function kbTint(hex, L) {{
   return '#' + to(h2(p,q,hh+1/3)) + to(h2(p,q,hh)) + to(h2(p,q,hh-1/3));
 }}
 
-function kbRow(icon, k, v) {{
+function kbRow(icon, k, v, cls) {{
   if (v === '' || v == null) return '';
-  return '<div class="kbRow"><div class="k"><span class="ki">' + icon +
+  return '<div class="kbRow' + (cls ? ' ' + cls : '') + '"><div class="k"><span class="ki">' + icon +
          '</span>' + kbEsc(k) + '</div><div class="v">' + kbEsc(v) + '</div></div>';
 }}
+/* 上课地点：大号高亮卡片（课程主色），房间号超大字 + 复制按钮 */
+function kbRoomCard(text, tint) {{
+  if (!text) return '';
+  var parts = String(text).split('·');
+  var bld = (parts[0] || '').trim();
+  var room = (parts.slice(1).join('·') || '').trim();
+  if (!room) {{ room = bld; bld = ''; }}
+  var m = /([A-Za-z]{{1,4}}[－-]?\d{{1,4}}(?:[－-]\d{{1,4}})?)/.exec(room);
+  var code = m ? m[1] : room;
+  var rest = m ? room.replace(m[1], '') : '';
+  rest = rest.replace(/^[（(\s　]+/, '').replace(/[）)\s　]+$/, '');
+  var deep = kbTint(tint, 0.32);
+  var lite1 = kbTint(tint, 0.95), lite2 = kbTint(tint, 0.87);
+  var h = '<div class="kbRoom" style="background:linear-gradient(135deg,' + lite1 + ',' + lite2 +
+          ');border-color:' + kbTint(tint, 0.70) + '">';
+  h += '<div class="rmIcon" style="background:' + deep + '">📍</div>';
+  h += '<div class="rmMain">';
+  h += '<div class="rmLabel">上课地点</div>';
+  h += '<div class="rmCode" style="color:' + deep + '">' + kbEsc(code) + '</div>';
+  var sub = (bld ? bld : '') + (bld && rest ? ' · ' : '') + rest;
+  if (sub) h += '<div class="rmSub">' + kbEsc(sub) + '</div>';
+  h += '</div>';
+  h += '<div class="rmCopy" data-room="' + kbEsc(code) + '" onclick="kbCopyRoom(event,this)">复制</div>';
+  h += '</div>';
+  return h;
+}}
+function kbCopyRoom(e, el) {{
+  e.stopPropagation();
+  var t = el.getAttribute('data-room') || '';
+  var done = function() {{
+    var old = el.textContent; el.textContent = '已复制';
+    setTimeout(function() {{ el.textContent = old; }}, 1400);
+  }};
+  try {{
+    if (navigator.clipboard && navigator.clipboard.writeText) {{
+      navigator.clipboard.writeText(t).then(done, function() {{ kbFallbackCopy(t); done(); }});
+    }} else {{ kbFallbackCopy(t); done(); }}
+  }} catch (err) {{ kbFallbackCopy(t); done(); }}
+}}
+function kbFallbackCopy(t) {{
+  try {{
+    var ta = document.createElement('textarea');
+    ta.value = t; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select();
+    document.execCommand('copy'); document.body.removeChild(ta);
+  }} catch (e) {{}}
+}}
+
 /* 移动端可点性：直接给每个格子绑定 click+touchend，
    不依赖 document 委托（移动浏览器对非交互元素不冒泡 click） */
 function kbBind(td) {{
@@ -654,12 +726,22 @@ function kbOpen(td) {{
   head.style.background = 'linear-gradient(135deg,' + kbTint(raw, 0.52) + ',' + kbTint(raw, 0.38) + ')';
   var infos = td.querySelectorAll('.cinfo');
   var ICONS = ['🕐', '🏫', '👤'];
+  var roomIdx = -1;
+  for (var ri = 0; ri < KB_INFO_LABELS.length; ri++) {{
+    if (KB_INFO_LABELS[ri] === '教室') {{ roomIdx = ri; break; }}
+  }}
   var h = '';
-  h += kbRow('🗓️', '周次', td.getAttribute('data-wk') ? ('第 ' + td.getAttribute('data-wk') + ' 周') : '');
-  h += kbRow('📅', '星期', td.getAttribute('data-day'));
-  h += kbRow('⏰', '节次', td.getAttribute('data-sectext'));
+  /* 上课地点置顶为高亮大卡片 */
+  if (roomIdx >= 0 && infos[roomIdx]) {{
+    h += kbRoomCard(infos[roomIdx].textContent.trim(), raw);
+  }}
+  h += kbRow('🗓️', '周次', td.getAttribute('data-wk') ? ('第 ' + td.getAttribute('data-wk') + ' 周') : '', 'dim');
+  h += kbRow('📅', '星期', td.getAttribute('data-day'), 'dim');
+  h += kbRow('⏰', '节次', td.getAttribute('data-sectext'), 'dim');
   for (var i = 0; i < infos.length; i++) {{
-    h += kbRow(ICONS[i] || '📌', KB_INFO_LABELS[i] || ('信息' + (i + 1)), infos[i].textContent.trim());
+    if (i === roomIdx) continue;   /* 教室已置顶，此处不再重复 */
+    h += kbRow(ICONS[i] || '📌', KB_INFO_LABELS[i] || ('信息' + (i + 1)),
+               infos[i].textContent.trim(), (KB_INFO_LABELS[i] === '教师') ? 'dim' : '');
   }}
   document.getElementById('kbBody').innerHTML = h;
   var mask = document.getElementById('kbMask');
