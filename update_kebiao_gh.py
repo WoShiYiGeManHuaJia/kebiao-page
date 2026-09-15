@@ -165,15 +165,9 @@ def table_html(parsed, week_monday=None):
             elif (d, sec) not in cell:
                 td += '<td data-col="%d"></td>' % d
         rows.append(f'<tr class="seg-{seg_key}">{td}</tr>')
-    if week_monday is None:
-        header = "".join(f'<th data-col="{d}">{DAY_NAMES[d]}</th>' for d in range(1, 7))
-    else:
-        parts = []
-        for d in range(1, 7):
-            dt = week_monday + timedelta(days=d - 1)
-            parts.append(f'<th data-col="{d}">{DAY_NAMES[d]}'
-                         f'<span class="dateTag">{dt.month}/{dt.day}</span></th>')
-        header = "".join(parts)
+    header = "".join(
+        f'<th data-col="{d}" onclick="setFocusDay({d})">{DAY_NAMES[d]}</th>'
+        for d in range(1, 7))
     return f'<table><tr><th class="time">节次</th>{header}</tr>{"".join(rows)}</table>'
 
 
@@ -264,7 +258,7 @@ h1{{font-size:21px;text-align:center;margin:6px 0 2px;color:#0b1220}}
 .legend i{{width:9px;height:9px;border-radius:999px;display:inline-block}}
 
 /* ── 苹果 Dock 风格日期选择条 ── */
-.dock{{position:relative;display:flex;align-items:stretch;margin:12px 0 8px;padding:4px;
+.dock{{position:sticky;top:0;z-index:60;display:flex;align-items:stretch;margin:12px 0 8px;padding:4px;
   border-radius:999px;
   background:rgba(255,255,255,.55);
   -webkit-backdrop-filter:blur(24px) saturate(185%);
@@ -309,9 +303,8 @@ th,td{{border-right:1px solid var(--line);border-bottom:1px solid var(--line);
   padding:6px 3px;vertical-align:middle;text-align:center;font-size:12px}}
 th{{background:rgba(43,90,160,.90);color:#fff;font-weight:700;font-size:12px;padding:8px 2px 7px;
   border-bottom:none;line-height:1.25}}
-th .dateTag{{display:block;margin-top:2px;font-size:9.5px;font-weight:600;
-  color:rgba(255,255,255,.82);letter-spacing:.2px}}
-th.today .dateTag{{color:#fff;font-weight:800}}
+th[data-col]{{cursor:pointer;-webkit-tap-highlight-color:transparent}}
+th[data-col]:active{{filter:brightness(1.12)}}
 tr:last-child td{{border-bottom:none}}
 td:last-child,th:last-child{{border-right:none}}
 
