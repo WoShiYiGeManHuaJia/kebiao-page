@@ -1049,6 +1049,33 @@ def gh_api(method, path, body=None, timeout=30):
             except Exception:
                 pass
 
+def write_status(info):
+    """把本次运行结果写入仓库的 data/kebiao_status.json，便于随时核查云端是否真的在工作。
+
+    主页 index.html 只在内容有变化时才推送，所以单看提交历史无法判断云端是否成功拉取。
+    这个文件每次运行都会更新（含时间戳），可作为云端心跳。
+    """
+    try:
+        import datetime as _dt
+        info = dict(info or {})
+        info["ts"] = (_dt.datetime.utcnow() + _dt.timedelta(hours=8)).strftime("%Y-%m-%d %H:%M:%S")
+        payload = json.dumps(info, ensure_ascii=False, indent=1)
+        cur = None
+        try:
+            cur = gh_api("GET", f"/repos/{GH_REPO}/contents/data/kebiao_status.json")
+        except Exception:
+            cur = None
+        body = {"message": "status " + info["ts"],
+                "content": base64.b64encode(payload.encode("utf-8")).decode()}
+        if cur and cur.get("sha"):
+            body["sha"] = cur["sha"]
+        gh_api("PUT", f"/repos/{GH_REPO}/contents/data/kebiao_status.json", body)
+        return True
+    except Exception as e:
+        print("WARN 状态写入失败:", e)
+        return False
+
+
 def push_to_github(html):
     cur = gh_api("GET", f"/repos/{GH_REPO}/contents/{GH_PAGE}")
     old_sha = cur.get("sha")
@@ -1065,13 +1092,39 @@ def push_to_github(html):
 
 
 if __name__ == "__main__":
+    _t0 = time.time()
+    _stat = {"ok": False, "stage": "init"}
     try:
+        _stat["stage"] = "login"
         token = login_and_get_token()
+        _stat["login"] = True
+
+        _stat["stage"] = "fetch"
         weeks, semester, cur_wk = load_all_weeks(token)
+        _stat["semester"] = semester
+        _stat["current_week"] = cur_wk
+        _stat["courses_total"] = sum(len(v) for v in weeks.values())
+        _stat["weeks_with_courses"] = sum(1 for v in weeks.values() if v)
+        _stat["per_week"] = {k: len(v) for k, v in weeks.items()}
+        # 若全部周都没课，视为拉取异常（学校接口多半没返回数据）
+        if _stat["courses_total"] == 0:
+            _stat["warn"] = "所有周均无课程，请检查学校接口"
+
+        _stat["stage"] = "render"
         html = render_page(weeks, semester, cur_wk)
-        with open("/tmp/kebiao_preview.html", "w", encoding="utf-8") as f:
-            f.write(html)  # 调试预览
+        _stat["html_bytes"] = len(html)
+        _stat["holiday_rules"] = bool(HOLIDAY_RULES.get("enabled"))
+
+        _stat["stage"] = "push"
         result = push_to_github(html)
+        _stat["push"] = result
+        _stat["ok"] = True
+        _stat["secs"] = round(time.time() - _t0, 1)
+        write_status(_stat)
         print("OK", result, f"(默认第{cur_wk}周)")
     except Exception as e:
+        _stat["error"] = str(e)[:300]
+        _stat["secs"] = round(time.time() - _t0, 1)
+        write_status(_stat)
         print("ERR", e)
+        sys.exit(1)

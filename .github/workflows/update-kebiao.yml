@@ -1,7 +1,7 @@
 name: update-kebiao
 on:
   schedule:
-    - cron: '0 * * * *'
+    - cron: '5,35 * * * *'
   workflow_dispatch: {}
 
 permissions:
@@ -16,8 +16,6 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      # 用新版脚本（含玻璃质感 + 放假调休规则），脚本自行通过 API 推送 index.html。
-      # 这里不再做 git add/commit，避免用 checkout 的旧文件回写覆盖最新页面。
       - name: pull and render latest
         env:
           KB_USER_NO: ${{ secrets.KB_USER }}
