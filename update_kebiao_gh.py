@@ -199,7 +199,7 @@ def render_page(weeks, semester, current_week):
     return f"""<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1"><title>我的课表</title><style>
 *{{margin:0;padding:0;box-sizing:border-box}}
-:root{{--line:rgba(148,163,184,.30);--ink:#0f172a;--tw:54px}}
+:root{{--line:rgba(148,163,184,.30);--ink:#0f172a;--tw:46px}}
 html{{-webkit-text-size-adjust:100%}}
 body{{
   font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei',sans-serif;
@@ -343,7 +343,7 @@ h1{{font-size:21px;text-align:center;margin:6px 0 2px;color:#0b1220}}
 }}
 table{{width:100%;border-collapse:separate;border-spacing:0;table-layout:fixed;background:transparent}}
 th,td{{border-right:1px solid var(--line);border-bottom:1px solid var(--line);
-  padding:6px 3px;vertical-align:middle;text-align:center;font-size:12px}}
+  padding:3px 2px;vertical-align:middle;text-align:center;font-size:12px;height:26px}}
 th{{background:rgba(43,90,160,.90);color:#fff;font-weight:700;font-size:12px;padding:8px 2px 7px;
   border-bottom:none;line-height:1.25}}
 th[data-col]{{cursor:pointer;-webkit-tap-highlight-color:transparent}}
@@ -352,9 +352,9 @@ tr:last-child td{{border-bottom:none}}
 td:last-child,th:last-child{{border-right:none}}
 
 /* 时间列：时段色条 + 圆角 */
-.time{{width:54px;background:rgba(248,250,252,.9);padding:5px 3px}}
-.time .sec-no{{font-size:11px;font-weight:800;color:#1e293b}}
-.time .sec-tag{{font-size:10px;margin-top:2px;font-weight:800}}
+.time{{width:var(--tw);background:rgba(248,250,252,.9);padding:3px 1px}}
+.time .sec-no{{font-size:10px;font-weight:800;color:#1e293b;line-height:1.15}}
+.time .sec-tag{{font-size:9px;margin-top:1px;font-weight:800;line-height:1.15}}
 .time.s-am{{background:rgba(255,251,235,.95)}}
 .time.s-am .sec-no{{color:#92400e}}
 .time.s-am .sec-tag{{color:#f59e0b}}
@@ -371,9 +371,19 @@ tr.seg-pm td:not(.cls):not(.time){{background:rgba(255,247,237,.6)}}
 tr.seg-nt td:not(.cls):not(.time){{background:rgba(238,242,255,.65)}}
 
 /* 课程块：真圆角卡片 */
-td.cls{{position:relative;cursor:pointer;padding:7px 4px;
+td.cls{{position:relative;cursor:pointer;padding:4px 3px 4px 6px;
   -webkit-tap-highlight-color:transparent;background-clip:padding-box}}
-td.cls::before{{content:'';position:absolute;left:3px;top:4px;bottom:4px;width:4px;
+/* 详情（地点/教师）收起，点击弹窗查看 → 课程条显著变短 */
+td.cls .cinfo:nth-of-type(n+2){{display:none}}
+/* 课程名最多 3 行，超出省略，避免长课名把块撑高 */
+td.cls .cname{{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;
+  overflow:hidden;line-height:1.22;font-size:11.5px}}
+td.cls .cinfo{{font-size:9.5px;margin-top:1px;white-space:nowrap;overflow:hidden;
+  text-overflow:ellipsis}}
+/* 右下角轻提示：可点开看详情 */
+td.cls::after{{content:'';position:absolute;right:3px;bottom:3px;width:0;height:0;
+  border-left:4px solid transparent;border-bottom:4px solid rgba(15,23,42,.28)}}
+td.cls::before{{content:'';position:absolute;left:2px;top:3px;bottom:3px;width:3px;
   background:var(--tc,#3b82f6);border-radius:999px}}
 td.cls:active{{opacity:.82}}
 .cname{{font-weight:800;font-size:12px;color:#0b1220;line-height:1.32;padding-left:6px}}
