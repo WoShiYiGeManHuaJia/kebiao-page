@@ -165,10 +165,7 @@ def table_html(parsed, week_monday=None):
             elif (d, sec) not in cell:
                 td += '<td data-col="%d"></td>' % d
         rows.append(f'<tr class="seg-{seg_key}">{td}</tr>')
-    header = "".join(
-        f'<th data-col="{d}" onclick="setFocusDay({d})">{DAY_NAMES[d]}</th>'
-        for d in range(1, 7))
-    return f'<table><tr><th class="time">节次</th>{header}</tr>{"".join(rows)}</table>'
+        return f'<table>{"".join(rows)}</table>' 
 
 
 def render_page(weeks, semester, current_week):
@@ -194,13 +191,15 @@ def render_page(weeks, semester, current_week):
         _dock_items.append(
             '<button class="dockItem" data-col="' + str(_d) + '" onclick="setFocusDay(' + str(_d) + ')">'
             '<b>' + DAY_NAMES[_d] + '</b><i>' + str(_dt.month) + '/' + str(_dt.day) + '</i><span class="dot"></span></button>')
-    dock_html = ('<div class="dock" id="dock"><div class="dockThumb" id="dockThumb"></div>'
+    dock_html = ('<div class="dock" id="dock">'
+                 '<span class="dockLabel" id="dockLabel">第 ' + str(current_week) + ' 周</span>'
+                 '<div class="dockThumb" id="dockThumb"></div>'
                  + "".join(_dock_items) + "</div>")
     now = time.strftime("%Y-%m-%d %H:%M")
     return f"""<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1"><title>我的课表</title><style>
 *{{margin:0;padding:0;box-sizing:border-box}}
-:root{{--line:rgba(148,163,184,.30);--ink:#0f172a}}
+:root{{--line:rgba(148,163,184,.30);--ink:#0f172a;--tw:54px}}
 html{{-webkit-text-size-adjust:100%}}
 body{{
   font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei',sans-serif;
@@ -231,20 +230,60 @@ h1{{font-size:21px;text-align:center;margin:6px 0 2px;color:#0b1220}}
 .pick{{text-align:center;margin:12px 0;position:relative;display:inline-block}}
 .pick .btn{{font-size:14px;padding:9px 20px;border:none;border-radius:999px;
   background:linear-gradient(135deg,rgba(90,141,225,.95),rgba(127,179,240,.95));color:#fff;
-  font-weight:700;outline:none;cursor:pointer;display:inline-block;
-  box-shadow:0 6px 18px rgba(90,141,225,.32), inset 0 1px 0 rgba(255,255,255,.5)}}
-.pick .btn:active{{transform:scale(.97)}}
-.ddpanel{{position:absolute;top:calc(100% + 10px);left:50%;transform:translateX(-50%);
-  border-radius:22px;padding:12px;z-index:99;display:none;width:290px;
+  font-weight:700;outline:none;cursor:pointer;display:inline-flex;align-items:center;gap:6px;
+  -webkit-tap-highlight-color:transparent;
+  box-shadow:0 6px 18px rgba(90,141,225,.32), inset 0 1px 0 rgba(255,255,255,.5);
+  transition:transform .22s cubic-bezier(.34,1.4,.5,1), box-shadow .22s}}
+.pick .btn:active{{transform:scale(.94)}}
+.pick .btn.open{{box-shadow:0 10px 26px rgba(90,141,225,.46), inset 0 1px 0 rgba(255,255,255,.5);
+  transform:scale(1.03)}}
+.pick .btn .caret{{display:inline-block;font-size:10px;line-height:1;
+  transition:transform .32s cubic-bezier(.34,1.4,.5,1)}}
+.pick .btn.open .caret{{transform:rotate(180deg)}}
+.ddpanel{{position:absolute;top:calc(100% + 10px);left:50%;width:290px;
+  border-radius:22px;padding:12px;z-index:99;
+  /* 用 transform 做缩放淡入，替代 display 硬切 */
+  transform:translateX(-50%) translateY(-10px) scale(.92);
+  transform-origin:50% 0;opacity:0;visibility:hidden;pointer-events:none;
+  transition:opacity .26s ease, transform .32s cubic-bezier(.34,1.42,.5,1), visibility .26s;
   background:rgba(255,255,255,.82);
   -webkit-backdrop-filter:blur(24px) saturate(180%);backdrop-filter:blur(24px) saturate(180%);
   border:1px solid rgba(255,255,255,.85);
   box-shadow:0 16px 40px rgba(30,60,110,.2), inset 0 1px 0 rgba(255,255,255,.9)}}
-.ddpanel.show{{display:block}}
+.ddpanel.show{{opacity:1;visibility:visible;pointer-events:auto;
+  transform:translateX(-50%) translateY(0) scale(1)}}
 .ddpanel .gtitle{{font-size:12px;color:#64748b;text-align:center;margin-bottom:9px;font-weight:700}}
 .ddgrid{{display:grid;grid-template-columns:repeat(5,1fr);gap:7px}}
 .opt{{font-size:13px;padding:8px 0;border:none;border-radius:999px;background:rgba(238,243,251,.9);
-  color:#1a3a6b;font-weight:700;cursor:pointer;text-align:center;transition:all .15s}}
+  color:#1a3a6b;font-weight:700;cursor:pointer;text-align:center;
+  -webkit-tap-highlight-color:transparent;
+  opacity:0;transform:scale(.6) translateY(-6px);
+  transition:background .16s, color .16s, box-shadow .16s, transform .2s, opacity .2s}}
+/* 展开时逐个错峰淡入（stagger） */
+.ddpanel.show .opt{{animation:optIn .34s cubic-bezier(.34,1.42,.5,1) forwards}}
+@keyframes optIn{{
+  0%{{opacity:0;transform:scale(.6) translateY(-6px)}}
+  100%{{opacity:1;transform:scale(1) translateY(0)}}
+}}
+.ddpanel.show .opt:nth-child(1){{animation-delay:.02s}}  .ddpanel.show .opt:nth-child(2){{animation-delay:.04s}}
+.ddpanel.show .opt:nth-child(3){{animation-delay:.06s}}  .ddpanel.show .opt:nth-child(4){{animation-delay:.08s}}
+.ddpanel.show .opt:nth-child(5){{animation-delay:.10s}}  .ddpanel.show .opt:nth-child(6){{animation-delay:.12s}}
+.ddpanel.show .opt:nth-child(7){{animation-delay:.14s}}  .ddpanel.show .opt:nth-child(8){{animation-delay:.16s}}
+.ddpanel.show .opt:nth-child(9){{animation-delay:.18s}}  .ddpanel.show .opt:nth-child(10){{animation-delay:.20s}}
+.ddpanel.show .opt:nth-child(11){{animation-delay:.22s}} .ddpanel.show .opt:nth-child(12){{animation-delay:.24s}}
+.ddpanel.show .opt:nth-child(13){{animation-delay:.26s}} .ddpanel.show .opt:nth-child(14){{animation-delay:.28s}}
+.ddpanel.show .opt:nth-child(15){{animation-delay:.30s}} .ddpanel.show .opt:nth-child(16){{animation-delay:.32s}}
+.ddpanel.show .opt:nth-child(17){{animation-delay:.34s}} .ddpanel.show .opt:nth-child(18){{animation-delay:.36s}}
+.ddpanel.show .opt:nth-child(19){{animation-delay:.38s}} .ddpanel.show .opt:nth-child(20){{animation-delay:.40s}}
+.opt:active{{transform:scale(.88) !important}}
+/* 当前选中项：展开时轻轻弹一下 */
+.ddpanel.show .opt.on{{animation:optIn .34s cubic-bezier(.34,1.42,.5,1) forwards, optPop .46s .30s cubic-bezier(.34,1.5,.5,1)}}
+@keyframes wkPop{{
+  0%{{transform:scale(1)}} 40%{{transform:scale(1.10)}} 100%{{transform:scale(1)}}
+}}
+@keyframes optPop{{
+  0%{{transform:scale(1)}} 45%{{transform:scale(1.16)}} 100%{{transform:scale(1)}}
+}}
 .opt:hover{{background:#5a8de1;color:#fff}}
 .opt.on{{background:linear-gradient(135deg,#5a8de1,#7fb3f0);color:#fff;
   box-shadow:0 4px 12px rgba(90,141,225,.42)}}
@@ -258,7 +297,8 @@ h1{{font-size:21px;text-align:center;margin:6px 0 2px;color:#0b1220}}
 .legend i{{width:9px;height:9px;border-radius:999px;display:inline-block}}
 
 /* ── 苹果 Dock 风格日期选择条 ── */
-.dock{{position:sticky;top:0;z-index:60;display:flex;align-items:stretch;margin:12px 0 8px;padding:4px;
+.dock{{position:sticky;top:0;z-index:60;display:flex;align-items:stretch;margin:12px 0 8px;
+  padding:4px 4px 4px calc(var(--tw) + 4px);
   border-radius:999px;
   background:rgba(255,255,255,.55);
   -webkit-backdrop-filter:blur(24px) saturate(185%);
@@ -269,12 +309,15 @@ h1{{font-size:21px;text-align:center;margin:6px 0 2px;color:#0b1220}}
   .dock{{background:rgba(255,255,255,.88)}}
 }}
 /* 滑块：苹果分段控件的胶囊拇指 */
-.dockThumb{{position:absolute;top:4px;left:4px;height:calc(100% - 8px);
-  width:calc((100% - 8px) / 6);border-radius:999px;z-index:0;
+.dockThumb{{position:absolute;top:4px;left:calc(var(--tw) + 4px);height:calc(100% - 8px);
+  width:calc((100% - var(--tw) - 8px) / 6);border-radius:999px;z-index:0;
   background:linear-gradient(135deg,#3b82f6,#60a5fa);
   box-shadow:0 4px 14px rgba(59,130,246,.42), inset 0 1px 0 rgba(255,255,255,.45);
   transition:left .30s cubic-bezier(.34,1.4,.5,1), opacity .2s;opacity:0}}
 .dockThumb.on{{opacity:1}}
+.dockLabel{{position:absolute;left:0;top:0;bottom:0;width:var(--tw);z-index:1;
+  display:flex;align-items:center;justify-content:center;
+  font-size:10px;font-weight:800;color:#64748b;pointer-events:none;letter-spacing:.2px}}
 .dockItem{{position:relative;z-index:1;flex:1 1 0;min-width:0;border:none;background:transparent;
   padding:7px 2px 8px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;
   font-family:inherit;color:#5b6b82;transition:color .22s;-webkit-tap-highlight-color:transparent}}
@@ -284,10 +327,10 @@ h1{{font-size:21px;text-align:center;margin:6px 0 2px;color:#0b1220}}
 .dockItem.on i{{opacity:.92}}
 .dockItem:active{{opacity:.7}}
 /* 今天的小圆点 */
-.dockItem .dot{{width:4px;height:4px;border-radius:999px;background:#f59e0b;margin-top:1px;
-  display:none}}
+.dockItem .dot{{font-size:8.5px;font-weight:800;line-height:1;margin-top:2px;
+  letter-spacing:.5px;color:#f59e0b;display:none}}
 .dockItem.isToday .dot{{display:block}}
-.dockItem.on .dot{{background:#fff}}
+.dockItem.on .dot{{color:#fff}}
 
 /* 表格：separate 模式让圆角生效 */
 .kbGlass{{border-radius:22px;overflow:hidden;
@@ -400,6 +443,7 @@ body.kbLock{{overflow:hidden}}
   body{{max-width:920px;margin:0 auto}}
   .cname{{font-size:14px}} .cinfo{{font-size:12px}}
   .time{{width:66px}} th,td{{font-size:13px}}
+  :root{{--tw:66px}}
 }}
 @media(prefers-color-scheme:dark){{
   body{{background-color:#0b1220;color:#e2e8f0;
@@ -419,6 +463,7 @@ body.kbLock{{overflow:hidden}}
   .dock{{background:rgba(30,41,59,.72);border-color:rgba(148,163,184,.24)}}
   .dockItem{{color:#94a3b8}}
   .dockItem.on{{color:#fff}}
+  .dockLabel{{color:#94a3b8}}
   .opt{{background:rgba(51,65,85,.85);color:#cfe0f5}}
   .legend span{{background:rgba(30,41,59,.7);color:#cbd5e1;border-color:rgba(148,163,184,.22)}}
   tr.seg-am td:not(.cls):not(.time){{background:rgba(120,80,20,.22)}}
@@ -428,7 +473,7 @@ body.kbLock{{overflow:hidden}}
 </style></head><body>
 <h1>我的课表</h1><div class="sub">{esc(semester)} · 共 {MAX_WEEK} 周</div>
 <div style="text-align:center"><span class="pick">
-<button class="btn" id="wkBtn" onclick="toggleDd(event)">第 {current_week} 周 ▾</button>
+<button class="btn" id="wkBtn" onclick="toggleDd(event)">第 {current_week} 周<span class="caret">▼</span></button>
 <div class="ddpanel" id="ddPanel"><div class="gtitle">选择周次</div><div class="ddgrid">{opts}</div></div>
 </span></div>
 <div class="legend">
@@ -446,19 +491,36 @@ function showWeek(n) {{
   for (var i = 0; i < panes.length; i++) {{
     panes[i].style.display = (panes[i].getAttribute('data-wk') === String(n)) ? 'block' : 'none';
   }}
-  document.getElementById('wkBtn').innerHTML = '第 ' + n + ' 周 ▾';
+  document.getElementById('wkBtn').innerHTML = '第 ' + n + ' 周<span class="caret">▼</span>';
   var opts = document.querySelectorAll('.opt');
   for (var j = 0; j < opts.length; j++) {{
     opts[j].className = 'opt' + ((parseInt(opts[j].getAttribute('data-wk')) === n) ? ' on' : '');
   }}
   document.getElementById('ddPanel').classList.remove('show');
   KB_WK = n;
+  var lb = document.getElementById('dockLabel');
+  if (lb) lb.textContent = '第 ' + n + ' 周';
   kbDockDates(n);
   kbMarkNow();
 }}
-function toggleDd(e) {{ e.stopPropagation(); document.getElementById('ddPanel').classList.toggle('show'); }}
-function pick(e, n) {{ e.stopPropagation(); showWeek(n); }}
-document.addEventListener('click', function() {{ document.getElementById('ddPanel').classList.remove('show'); }});
+function toggleDd(e) {{
+  e.stopPropagation();
+  var p = document.getElementById('ddPanel'), b = document.getElementById('wkBtn');
+  var on = p.classList.toggle('show');
+  if (b) b.classList.toggle('open', on);
+}}
+function pick(e, n) {{
+  e.stopPropagation();
+  showWeek(n);
+  var b = document.getElementById('wkBtn'); if (b) b.classList.remove('open');
+  var p = document.getElementById('ddPanel');
+  if (p) p.classList.remove('show');
+  if (b) {{ b.style.animation = 'none'; void b.offsetWidth; b.style.animation = 'wkPop .42s cubic-bezier(.34,1.5,.5,1)'; }}
+}}
+document.addEventListener('click', function() {{
+  document.getElementById('ddPanel').classList.remove('show');
+  var b = document.getElementById('wkBtn'); if (b) b.classList.remove('open');
+}});
 showWeek({current_week});
 
 /* ── 课程详情弹窗 ── */
@@ -661,7 +723,7 @@ function kbSetThumb(col) {{
   if (!th) return;
   if (col < 1 || col > 6) {{ th.classList.remove('on'); return; }}
   th.classList.add('on');
-  th.style.left = 'calc(4px + (100% - 8px) * ' + (col - 1) + ' / 6)';
+  th.style.left = 'calc(var(--tw) + 4px + (100% - var(--tw) - 8px) * ' + (col - 1) + ' / 6)';
 }}
 function kbClearMark() {{
   var cls = ['now', 'today'], i, j;
@@ -683,16 +745,6 @@ function kbMarkNow() {{
   if (KB_FOCUS) {{
     var ns = document.querySelectorAll('th[data-col="' + KB_FOCUS + '"], td[data-col="' + KB_FOCUS + '"]');
     for (var i = 0; i < ns.length; i++) ns[i].classList.add('today');
-    /* 只有真实今天才挂"今天"角标 */
-    if (KB_FOCUS === real) {{
-      var ths = document.querySelectorAll('th[data-col="' + KB_FOCUS + '"]');
-      for (var t = 0; t < ths.length; t++) {{
-        var tg = document.createElement('span');
-        tg.className = 'todayTag';
-        tg.textContent = '今天';
-        ths[t].appendChild(tg);
-      }}
-    }}
   }}
 
   /* 2) 当前课节（仅真实今天） */
@@ -719,6 +771,8 @@ function kbMarkNow() {{
   for (var q = 0; q < items.length; q++) {{
     var c = parseInt(items[q].getAttribute('data-col'), 10);
     items[q].className = 'dockItem' + (c === KB_FOCUS ? ' on' : '') + (c === real ? ' isToday' : '');
+    var dt = items[q].querySelector('.dot');
+    if (dt) dt.textContent = (c === real) ? '今天' : '';
   }}
   kbSetThumb(KB_FOCUS || 0);
 }}
