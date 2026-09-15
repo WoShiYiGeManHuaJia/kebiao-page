@@ -165,7 +165,8 @@ def table_html(parsed, week_monday=None):
             elif (d, sec) not in cell:
                 td += '<td data-col="%d"></td>' % d
         rows.append(f'<tr class="seg-{seg_key}">{td}</tr>')
-        return f'<table>{"".join(rows)}</table>' 
+    body = "".join(rows)
+    return "<table>" + body + "</table>"
 
 
 def render_page(weeks, semester, current_week):
@@ -343,7 +344,7 @@ h1{{font-size:21px;text-align:center;margin:6px 0 2px;color:#0b1220}}
 }}
 table{{width:100%;border-collapse:separate;border-spacing:0;table-layout:fixed;background:transparent}}
 th,td{{border-right:1px solid var(--line);border-bottom:1px solid var(--line);
-  padding:6px 4px;vertical-align:middle;text-align:center;font-size:13px}}
+  padding:5px 3px;vertical-align:middle;text-align:center;font-size:12.5px}}
 th{{background:rgba(43,90,160,.90);color:#fff;font-weight:700;font-size:12px;padding:8px 2px 7px;
   border-bottom:none;line-height:1.25}}
 th[data-col]{{cursor:pointer;-webkit-tap-highlight-color:transparent}}
@@ -371,10 +372,12 @@ tr.seg-pm td:not(.cls):not(.time){{background:rgba(255,247,237,.6)}}
 tr.seg-nt td:not(.cls):not(.time){{background:rgba(238,242,255,.65)}}
 
 /* 课程块：真圆角卡片 */
-td.cls{{position:relative;cursor:pointer;padding:8px 5px 8px 9px;
+td.cls{{position:relative;cursor:pointer;padding:6px 4px 6px 8px;
   -webkit-tap-highlight-color:transparent;background-clip:padding-box}}
-td.cls .cname{{line-height:1.34;font-size:13px;word-break:break-all}}
-td.cls .cinfo{{font-size:11px;margin-top:2px;line-height:1.45;word-break:break-all}}
+td.cls .cname{{line-height:1.32;font-size:12.5px;word-break:break-all}}
+td.cls .cinfo{{font-size:10.5px;margin-top:1px;line-height:1.4;word-break:break-all}}
+/* 只显示"时间"，地点/教师收起 → 点开弹窗看，课程条显著变短 */
+td.cls .cinfo:nth-of-type(n+2){{display:none}}
 /* 右下角轻提示：可点开看详情 */
 td.cls::after{{content:'';position:absolute;right:3px;bottom:3px;width:0;height:0;
   border-left:4px solid transparent;border-bottom:4px solid rgba(15,23,42,.22)}}
