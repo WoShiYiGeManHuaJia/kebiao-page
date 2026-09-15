@@ -1015,28 +1015,39 @@ setInterval(kbMarkNow, 60000);
 def gh_api(method, path, body=None, timeout=30):
     """GitHub API 用系统 curl 发送（路由器的 Python 缺 https 支持，curl 自带）
 
-    注意：页面 HTML 转 base64 后体积可达十万字节级。若把它作为命令行参数传给 curl，
-    OpenWrt 等小内存设备会触发 OSError [Errno 7] Argument list too long。
-    这里改为通过 stdin 管道写入（--data-binary @-），彻底避开 argv 长度限制。
+    ⚠ 关键点：页面 HTML 转 base64 后约 130KB+。
+       Linux 对「单个命令行参数」有 MAX_ARG_STRLEN = 128KB 的硬限制，
+       OpenWrt 等小内存设备还会受 ARG_MAX 总量限制，
+       把这么大的串塞进 argv 会直接抛 OSError [Errno 7] Argument list too long。
+       这里改成：先把 body 写入临时文件，再用 curl 的 `@文件` 语法读取，
+       完全绕开 argv 长度限制（管道 stdin 在部分精简 curl 上不可靠，故用文件）。
     """
+    import tempfile
     cmd = ["curl", "-sS", "--max-time", str(timeout), "-X", method,
            "-H", f"Authorization: token {GH_PAT}",
            "-H", "Accept: application/vnd.github+json",
            "-H", "User-Agent: kebiao-updater"]
-    payload = None
+    tmp_path = None
     if body is not None:
-        cmd += ["-H", "Content-Type: application/json", "--data-binary", "@-"]
         payload = json.dumps(body).encode("utf-8")
+        fd, tmp_path = tempfile.mkstemp(prefix="kbgh_", suffix=".json")
+        try:
+            with os.fdopen(fd, "wb") as f:
+                f.write(payload)
+        except Exception:
+            if tmp_path and os.path.exists(tmp_path):
+                os.unlink(tmp_path)
+            raise
+        cmd += ["-H", "Content-Type: application/json", "--data-binary", "@" + tmp_path]
     cmd.append(f"https://api.github.com{path}")
-    p = subprocess.run(cmd, input=payload, capture_output=True, text=False, timeout=timeout + 5)
-    if p.returncode != 0:
-        raise RuntimeError("curl 失败(%s): %s" % (p.returncode, p.stderr.decode("utf-8", "ignore")[:200]))
-    out = p.stdout.decode("utf-8", "ignore")
     try:
-        return json.loads(out)
-    except Exception:
-        raise RuntimeError("GitHub 返回非 JSON: " + out[:200])
-
+        p = subprocess.run(cmd, capture_output=True, text=False, timeout=timeout + 5)
+    finally:
+        if tmp_path and os.path.exists(tmp_path):
+            try:
+                os.unlink(tmp_path)
+            except Exception:
+                pass
 
 def push_to_github(html):
     cur = gh_api("GET", f"/repos/{GH_REPO}/contents/{GH_PAGE}")
