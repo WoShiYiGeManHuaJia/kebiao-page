@@ -1,7 +1,9 @@
 name: update-kebiao
+# ⚠ 学校接口 222.243.161.213:81 是内网/教育网地址，
+#   GitHub Actions（境外机房）连不上，实测 login 阶段即超时。
+#   因此关闭 schedule，改由路由器（国内网络）负责定时拉取与推送。
+#   保留 workflow_dispatch，需要时可在网页手动点一次（仅用于重跑样式渲染）。
 on:
-  schedule:
-    - cron: '5,35 * * * *'
   workflow_dispatch: {}
 
 permissions:
