@@ -45,9 +45,18 @@ if not GH_PAT:
     raise SystemExit("未找到 GitHub token：请写入 ~/.gh_token 或设置 GH_TOKEN 环境变量")
 
 DAY_NAMES = {1: "周一", 2: "周二", 3: "周三", 4: "周四", 5: "周五", 6: "周六", 0: "周日"}
-COLORS = ["#e8f0fe", "#e6f4ea", "#fef7e0", "#fce8e6", "#f3e8fd", "#e0f7fa", "#fff3e0", "#e8f5e9"]
-COLOR_TINTS = {"#e8f0fe": "#5a8de1", "#e6f4ea": "#2f9e5f", "#fef7e0": "#e8a33d", "#fce8e6": "#dd5749",
-               "#f3e8fd": "#8f6bd8", "#e0f7fa": "#1fa8b8", "#fff3e0": "#ef8a2e", "#e8f5e9": "#43a047"}
+# 时段划分（依据实际作息：上午 08:00-11:40 / 下午 14:30-18:10 / 晚上 19:30-21:10）
+def seg_of(sec):
+    if sec <= 4:
+        return "am", "上午"
+    if sec <= 8:
+        return "pm", "下午"
+    return "nt", "晚上"
+# 清新马卡龙：低饱和粉彩，柔和耐看，同屏易区分
+COLORS = ["#dbeafe", "#dcfce7", "#fef3c7", "#ffe4e6", "#ede9fe", "#cffafe", "#ffedd5", "#e0f2fe"]
+# 每门课的深色主色（左侧色条 / 弹窗头部），与上面浅色一一对应
+COLOR_TINTS = {"#dbeafe": "#3b82f6", "#dcfce7": "#22c55e", "#fef3c7": "#f59e0b", "#ffe4e6": "#f43f5e",
+               "#ede9fe": "#8b5cf6", "#cffafe": "#06b6d4", "#ffedd5": "#f97316", "#e0f2fe": "#0ea5e9"}
 
 
 def esc(s):
@@ -133,22 +142,28 @@ def table_html(parsed):
         if p["secs"]:
             start[(p["day"], p["secs"][0])] = i
     rows = []
+    prev_seg = None
     for sec in range(1, 11):
-        td = f'<td class="time">第{sec}节</td>'
+        seg_key, seg_name = seg_of(sec)
+        seg_start = " seg-start" if seg_key != prev_seg else ""
+        td = (f'<td class="time s-{seg_key}{seg_start}">'
+              f'<div class="sec-no">第{sec}节</div>'
+              f'<div class="sec-tag">{seg_name}</div></td>')
+        prev_seg = seg_key
         for d in range(1, 7):
             if (d, sec) in start:
                 p = parsed[start[(d, sec)]]
                 rs = max(len(p["secs"]), 1)
                 color = COLORS[start[(d, sec)] % len(COLORS)]
                 tint = COLOR_TINTS.get(color, "#5a8de1")
-                td += (f'<td rowspan="{rs}" class="cls" style="background:{color}" data-tint="{tint}"><div class="cname">{esc(p["name"])}</div>'
+                td += (f'<td rowspan="{rs}" class="cls" style="background:{color};--tc:{tint}" data-tint="{tint}"><div class="cname">{esc(p["name"])}</div>'
                        f'<div class="cinfo">{esc(p["time"])}</div>'
                        f'<div class="cinfo">{esc(p["bld"])}·{esc(p["room"])}</div>'
                        f'<div class="cinfo">{esc(p["teacher"])}</div></td>')
             elif (d, sec) not in cell:
                 td += "<td></td>"
-        rows.append(f"<tr>{td}</tr>")
-    header = "".join(f"<th>{DAY_NAMES[d]}</th>" for d in range(1, 7))
+        rows.append(f'<tr class="seg-{seg_key}">{td}</tr>')
+    header = "".join(f'<th data-col="{d}">{DAY_NAMES[d]}</th>' for d in range(1, 7))
     return f'<table><tr><th class="time">节次</th>{header}</tr>{"".join(rows)}</table>'
 
 
@@ -165,48 +180,99 @@ def render_page(weeks, semester, current_week):
     return f"""<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1"><title>我的课表</title><style>
 *{{margin:0;padding:0;box-sizing:border-box}}
-body{{font-family:-apple-system,'PingFang SC','Microsoft YaHei',sans-serif;background:#f5f7fa;padding:14px;color:#222}}
-h1{{font-size:20px;text-align:center;margin:6px 0 2px}}
+body{{font-family:-apple-system,'PingFang SC','Microsoft YaHei',sans-serif;
+  background:#f5f7fa;padding:14px;color:#222;-webkit-text-size-adjust:100%}}
+h1{{font-size:20px;text-align:center;margin:6px 0 2px;color:#1e293b}}
 .sub{{text-align:center;color:#888;font-size:13px;margin-bottom:10px}}
+
+/* 周次选择 */
 .pick{{text-align:center;margin:12px 0;position:relative;display:inline-block}}
-.pick .btn{{font-size:14px;padding:7px 16px;border:none;border-radius:14px;background:linear-gradient(135deg,#5a8de1,#7fb3f0);color:#fff;font-weight:600;outline:none;box-shadow:0 3px 8px rgba(90,141,225,.32);cursor:pointer;display:inline-block}}
+.pick .btn{{font-size:14px;padding:7px 16px;border:none;border-radius:14px;
+  background:linear-gradient(135deg,#5a8de1,#7fb3f0);color:#fff;font-weight:600;
+  outline:none;box-shadow:0 3px 8px rgba(90,141,225,.32);cursor:pointer;display:inline-block}}
 .pick .btn:active{{transform:scale(.97)}}
-.ddpanel{{position:absolute;top:calc(100% + 8px);left:50%;transform:translateX(-50%);background:#fff;border-radius:14px;box-shadow:0 8px 24px rgba(30,60,110,.18);padding:10px;z-index:99;display:none;width:290px}}
+.ddpanel{{position:absolute;top:calc(100% + 8px);left:50%;transform:translateX(-50%);
+  background:#fff;border-radius:14px;box-shadow:0 8px 24px rgba(30,60,110,.18);
+  padding:10px;z-index:99;display:none;width:290px}}
 .ddpanel.show{{display:block}}
 .ddpanel .gtitle{{font-size:12px;color:#8a97ab;text-align:center;margin-bottom:8px;font-weight:600}}
 .ddgrid{{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}}
-.opt{{font-size:13px;padding:6px 0;border:none;border-radius:9px;background:#eef3fb;color:#1a3a6b;font-weight:600;cursor:pointer;text-align:center;transition:background .15s,color .15s}}
+.opt{{font-size:13px;padding:6px 0;border:none;border-radius:9px;background:#eef3fb;
+  color:#1a3a6b;font-weight:600;cursor:pointer;text-align:center;transition:background .15s,color .15s}}
 .opt:hover{{background:#5a8de1;color:#fff}}
 .opt.on{{background:linear-gradient(135deg,#5a8de1,#7fb3f0);color:#fff;box-shadow:0 2px 6px rgba(90,141,225,.35)}}
-table{{width:100%;border-collapse:collapse;table-layout:fixed;margin:0 auto}}
-th,td{{border:1px solid #d5dbe3;padding:6px 4px;vertical-align:middle;text-align:center;font-size:13px}}
-th{{background:#2b5aa0;color:#fff;font-weight:600}}
-.time{{font-size:11px;color:#444;background:#eceff4;width:56px}}
-.cname{{font-weight:700;font-size:13px;color:#1a3a6b}}
-.cinfo{{font-size:11px;color:#555;margin-top:2px;line-height:1.45}}
+
+/* 时段图例 */
+.legend{{display:flex;justify-content:center;gap:14px;margin:10px 0 2px;flex-wrap:wrap}}
+.legend span{{display:flex;align-items:center;gap:5px;font-size:12px;color:#64748b}}
+.legend i{{width:10px;height:10px;border-radius:3px;display:inline-block}}
+
+/* 表格 */
+table{{width:100%;border-collapse:separate;border-spacing:0;table-layout:fixed;margin:0 auto;
+  background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 10px rgba(30,60,110,.08)}}
+th,td{{border:1px solid #e2e8f0;padding:5px 3px;vertical-align:middle;text-align:center;font-size:12px}}
+th{{background:#2b5aa0;color:#fff;font-weight:600;font-size:12px;padding:7px 2px}}
+
+/* 时间列：按时段着色（左侧色条 + 文字色） */
+.time{{width:52px;background:#f8fafc;padding:4px 2px}}
+.time .sec-no{{font-size:11px;font-weight:700;color:#334155}}
+.time .sec-tag{{font-size:10px;margin-top:1px;font-weight:700}}
+.time.s-am{{background:#fffbeb;box-shadow:inset 3px 0 0 #f59e0b}}
+.time.s-am .sec-tag{{color:#f59e0b}}
+.time.s-pm{{background:#fff7ed;box-shadow:inset 3px 0 0 #f97316}}
+.time.s-pm .sec-tag{{color:#f97316}}
+.time.s-nt{{background:#eef2ff;box-shadow:inset 3px 0 0 #6366f1}}
+.time.s-nt .sec-tag{{color:#6366f1}}
+
+/* 时段分隔：首行粗线 + 空格子染时段底色 */
+tr.seg-start td{{border-top:2px solid #94a3b8}}
+tr.seg-am td:not(.cls){{background:#fffbeb}}
+tr.seg-pm td:not(.cls){{background:#fff7ed}}
+tr.seg-nt td:not(.cls){{background:#eef2ff}}
+
+/* 课程块：左侧同色深条，强化辨识 */
+td.cls{{position:relative;cursor:pointer;transition:transform .12s,box-shadow .12s;
+  -webkit-tap-highlight-color:transparent;padding:6px 3px}}
+td.cls::before{{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;
+  background:var(--tc,#3b82f6);border-radius:2px 0 0 2px}}
+td.cls:active{{transform:scale(.97);box-shadow:inset 0 0 0 2px rgba(90,141,225,.45)}}
+.cname{{font-weight:700;font-size:12px;color:#1e293b;line-height:1.3;padding-left:5px}}
+.cinfo{{font-size:10.5px;color:#475569;margin-top:2px;line-height:1.45;padding-left:5px}}
 .empty{{text-align:center;color:#999;padding:40px 0;font-size:15px}}
 .pane{{display:none}}
-@media(min-width:720px){{body{{max-width:900px;margin:0 auto}}.cname{{font-size:15px}}</head><body>}}
 
-/* ── 课程详情弹窗（点击格子放大） ── */
-td.cls{{cursor:pointer;transition:transform .12s,box-shadow .12s;-webkit-tap-highlight-color:transparent}}
-td.cls:active{{transform:scale(.97);box-shadow:inset 0 0 0 2px rgba(90,141,225,.45)}}
-.kbMask{{position:absolute;left:0;right:0;background:rgba(15,25,45,.48);z-index:200;display:none;align-items:center;justify-content:center;padding:20px}}
+/* 课程详情弹窗 */
+.kbMask{{position:absolute;left:0;right:0;background:rgba(15,25,45,.48);z-index:200;
+  display:none;align-items:center;justify-content:center;padding:20px}}
 .kbMask.show{{display:flex}}
-.kbCard{{background:#fff;border-radius:16px;width:100%;max-width:340px;box-shadow:0 12px 34px rgba(20,40,80,.3);overflow:hidden;animation:kbPop .18s ease-out}}
+.kbCard{{background:#fff;border-radius:16px;width:100%;max-width:340px;
+  box-shadow:0 12px 34px rgba(20,40,80,.3);overflow:hidden;animation:kbPop .18s ease-out}}
 @keyframes kbPop{{from{{transform:scale(.93);opacity:0}}to{{transform:scale(1);opacity:1}}}}
-.kbHead{{padding:18px 16px 15px;color:#fff;display:flex;align-items:center;gap:12px;border-bottom:1px solid rgba(255,255,255,.22)}}
-.kbIcon{{width:46px;height:46px;border-radius:14px;background:rgba(255,255,255,.24);color:#fff;font-size:20px;font-weight:800;display:flex;align-items:center;justify-content:center;flex:none;text-shadow:0 1px 3px rgba(0,0,0,.2)}}
+.kbHead{{padding:18px 16px 15px;color:#fff;display:flex;align-items:center;gap:12px;
+  border-bottom:1px solid rgba(255,255,255,.22)}}
+.kbIcon{{width:46px;height:46px;border-radius:14px;background:rgba(255,255,255,.24);color:#fff;
+  font-size:20px;font-weight:800;display:flex;align-items:center;justify-content:center;flex:none;
+  text-shadow:0 1px 3px rgba(0,0,0,.2)}}
 .kbName{{flex:1;font-size:18px;font-weight:700;line-height:1.35;word-break:break-all}}
-.kbClose{{width:30px;height:30px;border-radius:50%;background:rgba(255,255,255,.28);color:#fff;font-size:20px;line-height:30px;text-align:center;cursor:pointer;flex:none;transition:background .15s,transform .15s}}
+.kbClose{{width:30px;height:30px;border-radius:50%;background:rgba(255,255,255,.28);color:#fff;
+  font-size:20px;line-height:30px;text-align:center;cursor:pointer;flex:none;
+  transition:background .15s,transform .15s}}
 .kbClose:active{{background:rgba(255,255,255,.5);transform:scale(.9)}}
 .kbBody{{padding:12px 16px 16px;max-height:60vh;overflow-y:auto;-webkit-overflow-scrolling:touch}}
 body.kbLock{{overflow:hidden}}
-.kbRow{{display:flex;align-items:flex-start;padding:11px 0;border-bottom:1px solid #eef1f6;font-size:14px;line-height:1.55}}
+.kbRow{{display:flex;align-items:flex-start;padding:11px 0;border-bottom:1px solid #eef1f6;
+  font-size:14px;line-height:1.55}}
 .kbRow:last-child{{border-bottom:none}}
 .kbRow .k{{width:86px;flex:none;color:#98a4b6;font-size:13px}}
 .kbRow .v{{flex:1;color:#1a3a6b;font-weight:600;word-break:break-all}}
 .kbRow .ki{{font-size:15px;margin-right:3px}}
+
+@media(min-width:720px){{
+  body{{max-width:900px;margin:0 auto}}
+  .cname{{font-size:14px}}
+  .cinfo{{font-size:12px}}
+  .time{{width:64px}}
+}}
 @media(prefers-color-scheme:dark){{
   .kbCard{{background:#22303f}}
   .kbRow{{border-bottom-color:#33424f}}
@@ -219,6 +285,11 @@ body.kbLock{{overflow:hidden}}
 <button class="btn" id="wkBtn" onclick="toggleDd(event)">第 {current_week} 周 ▾</button>
 <div class="ddpanel" id="ddPanel"><div class="gtitle">选择周次</div><div class="ddgrid">{opts}</div></div>
 </span></div>
+<div class="legend">
+  <span><i style="background:#f59e0b"></i>上午 1-4节</span>
+  <span><i style="background:#f97316"></i>下午 5-8节</span>
+  <span><i style="background:#6366f1"></i>晚上 9-10节</span>
+</div>
 <div id="panes">{''.join(panes)}</div>
 <div class="sub" style="margin-top:12px">数据来源：学校接口 · 更新于 {now} · 托管 GitHub Pages</div>
 <div class="kbMask" id="kbMask"><div class="kbCard"><div class="kbHead"><div class="kbIcon" id="kbIcon"></div><div class="kbName" id="kbName"></div><div class="kbClose" id="kbClose">&times;</div></div><div class="kbBody" id="kbBody"></div></div></div>
