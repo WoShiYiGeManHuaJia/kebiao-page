@@ -237,23 +237,44 @@ td.cls.now::after{content:'';position:absolute;inset:2px;border-radius:12px;
   padding:3px 0;letter-spacing:.5px;box-shadow:0 2px 7px rgba(244,63,94,.4)}
 /* ── 选中列：上层悬浮液态毛玻璃圆角框（替代原蓝色高亮）── */
 .kbColGlass{position:absolute;z-index:5;pointer-events:none;
-  border-radius:20px;opacity:0;
-  background:rgba(255,255,255,.25);
-  -webkit-backdrop-filter:blur(12px) saturate(180%);backdrop-filter:blur(12px) saturate(180%);
-  border:1px solid rgba(255,255,255,.45);
-  box-shadow:0 8px 32px rgba(31,38,135,.15), inset 0 1px 1px rgba(255,255,255,.6), inset 0 -1px 1px rgba(255,255,255,.2);
+  border-radius:22px;opacity:0;overflow:hidden;
+  /* 冷调色相渐变：白底卡片上也能看出玻璃的厚度与折射，不再是纯白一片 */
+  background:linear-gradient(135deg,
+    rgba(255,255,255,.70) 0%,
+    rgba(236,244,255,.48) 34%,
+    rgba(206,228,255,.36) 58%,
+    rgba(255,255,255,.54) 100%);
+  -webkit-backdrop-filter:blur(14px) saturate(165%) brightness(1.05);
+  backdrop-filter:blur(14px) saturate(165%) brightness(1.05);
+  border:1px solid rgba(255,255,255,.88);
+  /* 悬浮投影 + 镜片描边（上缘高光、下缘暗边 = 玻璃厚度）+ 冷调内辉 */
+  box-shadow:0 16px 36px rgba(31,38,135,.22),
+             0 3px 10px rgba(15,23,42,.10),
+             inset 0 1.6px 1px rgba(255,255,255,.95),
+             inset 0 -1.6px 1px rgba(148,163,184,.36),
+             inset 1.6px 0 1px rgba(255,255,255,.58),
+             inset -1.6px 0 1px rgba(148,163,184,.26),
+             inset 0 0 14px rgba(186,216,255,.36);
   transition:opacity .4s ease}
-/* 曲面高光反光条 */
-.kbColGlass::before{content:'';position:absolute;top:5%;left:15%;width:60%;height:35%;
-  background:linear-gradient(135deg,rgba(255,255,255,.55) 0%,rgba(255,255,255,0) 100%);
-  border-radius:50%;filter:blur(6px);pointer-events:none}
-.kbColGlass.on{opacity:1;animation:liquidPop .4s cubic-bezier(.34,1.56,.64,1)}
+/* 曲面高光：左上椭圆镜面反射 */
+.kbColGlass::before{content:'';position:absolute;top:-20%;left:-12%;width:80%;height:54%;
+  background:radial-gradient(ellipse at 32% 32%,
+    rgba(255,255,255,.98) 0%, rgba(255,255,255,.44) 42%, rgba(255,255,255,0) 70%);
+  border-radius:50%;filter:blur(9px);pointer-events:none}
+/* 底部折射光 + 虹彩色散（右下偏冷蓝） */
+.kbColGlass::after{content:'';position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+  background:radial-gradient(ellipse at 80% 112%, rgba(178,210,255,.58) 0%, rgba(178,210,255,0) 58%),
+             linear-gradient(118deg, rgba(255,255,255,0) 52%, rgba(198,222,255,.32) 76%, rgba(255,255,255,.12) 100%);
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.38)}
+.kbColGlass.on{opacity:1;animation:liquidPop .46s cubic-bezier(.34,1.56,.64,1)}
 @keyframes liquidPop{
-  0%{transform:scale(.94);border-radius:26px;opacity:0}
-  60%{transform:scale(1.03);border-radius:18px}
-  100%{transform:scale(1);border-radius:20px;opacity:1}}
+  0%{transform:scale(.92);border-radius:30px;opacity:0}
+  55%{transform:scale(1.035);border-radius:18px}
+  78%{transform:scale(.995);border-radius:24px}
+  100%{transform:scale(1);border-radius:22px;opacity:1}}
 @supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
-  .kbColGlass{background:rgba(255,255,255,.55)}
+  .kbColGlass{background:linear-gradient(135deg,
+    rgba(255,255,255,.90) 0%, rgba(226,238,255,.82) 45%, rgba(204,224,255,.78) 100%)}
 }
 
 
@@ -797,8 +818,9 @@ function kbFrameRect(pane, col) {
     n++;
   }
   if (!n || t >= b || l >= r) return null;
-  return { top: Math.round(t - br.top + 1), left: Math.round(l - br.left + 1),
-           w: Math.round(r - l - 2), h: Math.round(b - t - 2) };
+  /* 外扩 2px：玻璃比列本身略大一圈，悬浮感更明显 */
+  return { top: Math.round(t - br.top - 2), left: Math.round(l - br.left - 2),
+           w: Math.round(r - l + 4), h: Math.round(b - t + 4) };
 }
 function kbGlassFrame(pane, col) {
   if (!pane) return;
