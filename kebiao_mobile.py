@@ -76,7 +76,19 @@ def main():
         offline_used = True
         print("离线模式：使用缓存渲染")
     else:
-        print("登录学校接口…")
+        # 配置自检：占位账号说明 ~/.kb_conf 还没写，必然登录失败
+        if str(getattr(kb, "USER_NO", "")) in ("", "000000"):
+            sys.exit(
+                "\n❌ 没找到学校账号配置（~/.kb_conf 不存在）。\n"
+                "   请先写入配置，格式见下方命令（把你自己的学号/密码串填进去）：\n"
+                "     cat > ~/.kb_conf <<'CONF'\n"
+                "     USER_NO=你的学号\n"
+                "     PWD_ENC=你的加密密码串\n"
+                "     SCHOOL_CODE=4711\n"
+                "     CONF\n"
+                "   或者直接运行 setup_phone.sh（会自动写入）。\n"
+            )
+        print(f"登录学校接口…（学号 {kb.USER_NO[:4]}****，学校码 {kb.SCHOOL_CODE}）")
         try:
             token = kb.login_and_get_token()
         except Exception as e:
