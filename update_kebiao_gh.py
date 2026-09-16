@@ -683,6 +683,11 @@ body.kbLock{{overflow:hidden}}
 <div class="sub" style="margin-top:12px">数据来源：学校接口 · 更新于 {now} · 托管 GitHub Pages</div>
 <div class="kbMask" id="kbMask"><div class="kbCard"><div class="kbHead"><div class="kbIcon" id="kbIcon"></div><div class="kbName" id="kbName"></div><div class="kbClose" id="kbClose">&times;</div></div><div class="kbBody" id="kbBody"></div></div></div>
 <script>
+/* 放假区间 [起Y,起M,起D, 止Y,止M,止D]，用于 Dock 上标记「放假」。
+   必须放在脚本最顶部：showWeek() 在脚本前半段就会被立即调用，
+   若 KB_HOL 定义在后面，var 提升只会声明不赋值 → undefined.length 抛错，
+   会中断整个初始化（连课程点击绑定都不会执行）。 */
+var KB_HOL = {_hol_js};
 function showWeek(n) {{
   var panes = document.querySelectorAll('.pane');
   for (var i = 0; i < panes.length; i++) {{
@@ -942,8 +947,6 @@ kbAnnotate();
 var KB_MANUAL = false;   /* 用户是否手动选过某天 */
 var KB_FOCUS = null;     /* 当前聚焦的列 1..6 */
 var KB_WK = {current_week};   /* 当前显示周次 */
-/* 放假区间 [起Y,起M,起D, 止Y,止M,止D]，用于 Dock 上标记「放假」 */
-var KB_HOL = {_hol_js};
 
 function kbMin(s) {{
   var m = /^(\d{{1,2}}):(\d{{2}})$/.exec((s || '').trim());
@@ -965,6 +968,7 @@ function kbDateOf(ymd, n) {{
 }}
 /* 该日期是否落在放假区间 */
 function kbIsHol(y, m, d) {{
+  if (typeof KB_HOL === 'undefined' || !KB_HOL) return false;
   var t = new Date(y, m - 1, d).getTime();
   for (var i = 0; i < KB_HOL.length; i++) {{
     var a = new Date(KB_HOL[i][0], KB_HOL[i][1] - 1, KB_HOL[i][2]).getTime();
