@@ -17,10 +17,10 @@ log() { echo "[$(date '+%m-%d %H:%M:%S')] $*" | tee -a "$LOG"; }
 # ---- 安装/卸载定时任务 ----
 case "$1" in
   install)
-    # 5-23 点每小时整点跑一次；0-4 点（深夜）不跑 —— 那会儿既没人看课表，
-    # 又最容易因持续请求触发校园网共享检测。
-    ( crontab -l 2>/dev/null | grep -v "kb30.sh" ; echo "0 5-23 * * * sh /root/kb30.sh >> /tmp/kb30.log 2>&1" ) | crontab -
-    echo "已安装定时任务（每天 5:00-23:00 每小时一次，共 19 次）："
+    # 每天 6/12/18 点各一次 —— 课表一天内变动很少，请求越少越不容易
+    # 触发校园网共享检测。
+    ( crontab -l 2>/dev/null | grep -v "kb30.sh" ; echo "0 6,12,18 * * * sh /root/kb30.sh >> /tmp/kb30.log 2>&1" ) | crontab -
+    echo "已安装定时任务（每天 6:00 / 12:00 / 18:00 各一次）："
     crontab -l | grep kb30.sh
     exit 0
     ;;
