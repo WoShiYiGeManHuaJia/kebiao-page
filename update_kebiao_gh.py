@@ -339,7 +339,7 @@ def render_page(weeks, semester, current_week):
                  '<span class="dockLabel" id="dockLabel">第 ' + str(current_week) + ' 周</span>'
                  '<div class="dockThumb" id="dockThumb"></div>'
                  + "".join(_dock_items) + "</div>")
-    now = time.strftime("%Y-%m-%d %H:%M")
+    now = bj_now("%Y-%m-%d %H:%M")   # 必须北京时间：曾因系统 TZ=UTC 写成凌晨时间
     return f"""<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1"><title>我的课表</title><style>
 *{{margin:0;padding:0;box-sizing:border-box}}
@@ -1361,6 +1361,16 @@ def ensure_cron():
     except Exception as e:
         print("WARN cron 校准跳过:", e)
         return False
+
+
+def bj_now(fmt="%Y-%m-%d %H:%M"):
+    """强制北京时间(UTC+8)，不依赖系统本地时区。
+
+    教训：沙盒/部分设备的 TZ 是 UTC，直接用 time.strftime 会把时间戳写成
+    UTC 时间（比北京早 8 小时），页面看起来就像"停在凌晨"。
+    """
+    import datetime as _dt
+    return (_dt.datetime.utcnow() + _dt.timedelta(hours=8)).strftime(fmt)
 
 
 if __name__ == "__main__":
