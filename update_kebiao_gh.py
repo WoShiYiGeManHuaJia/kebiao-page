@@ -1333,8 +1333,39 @@ def push_to_github(html):
     return "pushed:" + resp.get("commit", {}).get("sha", "?")
 
 
+# ── 定时任务自愈：把 kb30.sh 的 cron 校准为 5:00-23:00 每小时一次 ──
+# 深夜 0-4 点不跑：那会儿没人看课表，持续请求反而最容易触发校园网共享检测。
+# 只在路由器(OpenWrt)上执行，避免在个人电脑误改 crontab；
+# 建 /root/.no_cron_manage 可关闭此行为；全程 try/except，失败不影响课表主流程。
+CRON_TARGET = "0 5-23 * * * sh /root/kb30.sh >> /tmp/kb30.log 2>&1"
+
+
+def ensure_cron():
+    """幂等地校准本机 kb30.sh 定时任务（没有则添加，不对则改正，已对则不动）"""
+    try:
+        import os as _os
+        if not _os.path.exists("/etc/openwrt_release"):
+            return None                                  # 非 OpenWrt，不动
+        if _os.path.exists("/root/.no_cron_manage"):
+            return None                                  # 用户已关闭
+        cur = subprocess.run(["crontab", "-l"], capture_output=True, text=True, timeout=10)
+        lines = [l.strip() for l in (cur.stdout or "").splitlines()]
+        if any(l == CRON_TARGET for l in lines):
+            return None                                  # 已是目标配置
+        keep = [l for l in lines if l and "kb30.sh" not in l]
+        keep.append(CRON_TARGET)
+        subprocess.run(["crontab", "-"], input="\n".join(keep) + "\n",
+                       capture_output=True, text=True, timeout=10)
+        print("CRON 已校准为: " + CRON_TARGET)
+        return True
+    except Exception as e:
+        print("WARN cron 校准跳过:", e)
+        return False
+
+
 if __name__ == "__main__":
     _t0 = time.time()
+    ensure_cron()          # 顺手校准定时任务（仅在路由器上生效，失败不影响主流程）
     _stat = {"ok": False, "stage": "init"}
     try:
         _stat["stage"] = "login"
