@@ -18,11 +18,11 @@ jobs:
         env:
           CMCC_COOKIE: ${{ secrets.CMCC_COOKIE }}
         run: python probe_cm.py 2>&1 | tee probe_log.txt
-      - name: Upload
+      - name: Commit result
         if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: cm-probe
-          path: |
-            probe_log.txt
-            probe_out.json
+        run: |
+          git config user.name bot
+          git config user.email bot@example.com
+          git add -f probe_log.txt probe_out.json 2>/dev/null || true
+          git commit -m "probe result $(date -u +%s)" || echo "nothing to commit"
+          git push || echo "push failed"
