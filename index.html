@@ -102,13 +102,40 @@ h1{font-size:21px;text-align:center;margin:6px 0 2px;color:#0b1220}
 .dock{position:sticky;top:0;z-index:60;display:flex;align-items:stretch;margin:12px 0 8px;
   padding:4px 4px 4px calc(var(--tw) + 4px);
   border-radius:999px;
-  background:rgba(255,255,255,.55);
-  -webkit-backdrop-filter:blur(24px) saturate(185%);
-  backdrop-filter:blur(24px) saturate(185%);
-  border:1px solid rgba(255,255,255,.82);
-  box-shadow:0 10px 30px rgba(31,38,135,.13), inset 0 1px 0 rgba(255,255,255,.92)}
+  /* overflow:hidden —— 把椭圆高光裁进胶囊内，否则会露出条外 */
+  overflow:hidden;
+  /* 液态玻璃：冷调渐变，白底上也能看出厚度与折射（与选中列玻璃同一套视觉语言） */
+  background:linear-gradient(135deg,
+    rgba(255,255,255,.72) 0%,
+    rgba(238,245,255,.52) 32%,
+    rgba(210,230,255,.42) 56%,
+    rgba(255,255,255,.58) 100%);
+  -webkit-backdrop-filter:blur(26px) saturate(180%) brightness(1.04);
+  backdrop-filter:blur(26px) saturate(180%) brightness(1.04);
+  border:1px solid rgba(255,255,255,.88);
+  /* 悬浮投影 + 镜片描边（上缘高光 / 下缘暗边 / 左右侧壁）+ 冷调内辉 */
+  box-shadow:0 14px 34px rgba(31,38,135,.20),
+             0 3px 9px rgba(15,23,42,.09),
+             inset 0 1.5px 1px rgba(255,255,255,.95),
+             inset 0 -1.5px 1px rgba(148,163,184,.34),
+             inset 1.5px 0 1px rgba(255,255,255,.55),
+             inset -1.5px 0 1px rgba(148,163,184,.24),
+             inset 0 0 13px rgba(186,216,255,.34)}
+/* 曲面高光：左上横向椭圆镜面反射。
+   必须 position:absolute —— 否则伪元素会变成 flex item 挤掉日期按钮。
+   z-index:0 让高光留在文字之下，日期不被冲白。 */
+.dock::before{content:'';position:absolute;top:-30%;left:-8%;width:76%;height:78%;z-index:0;
+  background:radial-gradient(ellipse at 35% 40%,
+    rgba(255,255,255,.95) 0%, rgba(255,255,255,.40) 44%, rgba(255,255,255,0) 72%);
+  border-radius:50%;filter:blur(9px);pointer-events:none}
+/* 底部折射光 + 虹彩色散（右下偏冷蓝） */
+.dock::after{content:'';position:absolute;inset:0;border-radius:inherit;z-index:0;pointer-events:none;
+  background:radial-gradient(ellipse at 78% 118%, rgba(178,210,255,.52) 0%, rgba(178,210,255,0) 60%),
+             linear-gradient(118deg, rgba(255,255,255,0) 50%, rgba(198,222,255,.30) 74%, rgba(255,255,255,.10) 100%);
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.36)}
 @supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
-  .dock{background:rgba(255,255,255,.88)}
+  .dock{background:linear-gradient(135deg,
+    rgba(255,255,255,.92) 0%, rgba(228,239,255,.84) 45%, rgba(206,226,255,.80) 100%)}
 }
 /* 滑块：苹果分段控件的胶囊拇指 */
 .dockThumb{position:absolute;top:4px;left:calc(var(--tw) + 4px);height:calc(100% - 8px);
