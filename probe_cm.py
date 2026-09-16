@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """移动掌厅探测：用新鲜 Cookie 渲染掌厅首页，抓余额/流量/语音 + 真实 API 报文"""
-import os, re, json, asyncio
+import os, re, json, asyncio, base64
 
 CK = os.environ.get("CMCC_COOKIE", "")
 UA = ("Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 "
@@ -73,3 +73,29 @@ asyncio.run(main())
 with open("probe_out.json", "w") as f:
     json.dump(API_HITS, f, ensure_ascii=False, indent=1)
 print("saved probe_out.json")
+
+# ── 回传结果到仓库（用 Actions 自带的 GITHUB_TOKEN）──
+import urllib.request as _u
+_tok = os.environ.get("GITHUB_TOKEN", "")
+if _tok:
+    _log = open("probe_log.txt").read() if os.path.exists("probe_log.txt") else "(no log)"
+    _payload = _log + "\n\n===== API HITS =====\n" + json.dumps(API_HITS[:12], ensure_ascii=False, indent=1)
+    _H = {"Authorization": f"token {_tok}", "Accept": "application/vnd.github+json", "User-Agent": "probe"}
+    _repo = os.environ.get("GITHUB_REPOSITORY", "")
+    def _put(path, content, msg):
+        _b = {"message": msg, "content": base64.b64encode(content.encode()).decode()}
+        try:
+            _r = _u.Request(f"https://api.github.com/repos/{_repo}/contents/{path}", headers=_H)
+            _old = json.load(_u.urlopen(_r, timeout=30))
+            if _old.get("sha"): _b["sha"] = _old["sha"]
+        except Exception:
+            pass
+        try:
+            _r2 = _u.Request(f"https://api.github.com/repos/{_repo}/contents/{path}",
+                             data=json.dumps(_b).encode(), headers={**_H, "Content-Type": "application/json"},
+                             method="PUT")
+            _u.urlopen(_r2, timeout=60)
+            print("UPLOADED", path)
+        except Exception as e:
+            print("UPLOAD FAIL", path, str(e)[:150])
+    _put("probe_result.txt", _payload, "probe result")
