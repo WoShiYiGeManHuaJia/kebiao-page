@@ -1130,6 +1130,20 @@ def gh_api(method, path, body=None, timeout=30):
             except Exception:
                 pass
 
+    # ★ 这里必须有返回值：曾漏掉 return，导致调用方拿到 None，
+    #   cur.get("sha") 抛 'NoneType' object has no attribute 'get'。
+    raw = (p.stdout or b"").decode("utf-8", "replace").strip()
+    if p.returncode != 0:
+        err = (p.stderr or b"").decode("utf-8", "replace").strip()
+        raise RuntimeError("curl 失败(exit=%s): %s | %s"
+                           % (p.returncode, err[:200], raw[:200]))
+    if not raw:
+        raise RuntimeError("GitHub 返回空（网络不通或被拒）")
+    try:
+        return json.loads(raw)
+    except Exception:
+        raise RuntimeError("GitHub 返回非 JSON: %s" % raw[:240])
+
 def write_status(info):
     """把本次运行结果写入仓库的 data/kebiao_status.json，便于随时核查云端是否真的在工作。
 
@@ -1159,6 +1173,8 @@ def write_status(info):
 
 def push_to_github(html):
     cur = gh_api("GET", f"/repos/{GH_REPO}/contents/{GH_PAGE}")
+    if not isinstance(cur, dict):
+        raise RuntimeError("读取远端 index.html 失败：gh_api 返回 %r" % (cur,))
     old_sha = cur.get("sha")
     if base64.b64decode(cur.get("content") or "").decode() == html:
         print("内容无变化，跳过推送")
