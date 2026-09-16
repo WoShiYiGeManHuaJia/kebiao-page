@@ -17,6 +17,7 @@ jobs:
       - name: Run probe
         env:
           CMCC_COOKIE: ${{ secrets.CMCC_COOKIE }}
+          CM_PAT: ${{ secrets.CM_PAT }}
         run: python probe_cm.py 2>&1 | tee probe_log.txt
       - name: Commit result
         if: always()
