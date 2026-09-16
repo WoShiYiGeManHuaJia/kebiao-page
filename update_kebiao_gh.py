@@ -215,6 +215,23 @@ def load_all_weeks(token):
     return weeks, semester, current_week
 
 
+def _hol_cls(week_monday, day_no):
+    """某周第 day_no 天(1=周一)若落在放假区间，返回 class 属性用于标注「放假」空列"""
+    if not week_monday or not HOLIDAY_RULES.get("enabled"):
+        return ""
+    try:
+        D = week_monday + timedelta(days=day_no - 1)
+    except Exception:
+        return ""
+    for a, b in (HOLIDAY_RULES.get("holidays") or []):
+        try:
+            if _kb_date(a) <= D <= _kb_date(b):
+                return ' class="hol"'
+        except Exception:
+            continue
+    return ""
+
+
 def table_html(parsed, week_monday=None):
     """由某周课程列表渲染出表格 HTML"""
     cell, start = {}, {}
@@ -223,13 +240,11 @@ def table_html(parsed, week_monday=None):
             cell[(p["day"], sec)] = i
         if p["secs"]:
             start[(p["day"], p["secs"][0])] = i
-    # 列数：默认周一~周六；若本周存在周日课程（调休补课）才扩展到 7 列，
-    # 避免无谓地挤压课名宽度（每列仅约 41px）
-    max_col = 6
-    for p in parsed:
-        if int(p.get("day", 0) or 0) >= 7:
-            max_col = 7
-            break
+    # 列数：固定周一~周日 7 列。
+    # 之前按课程动态取 6/7 列，会和顶部 Dock 的固定 7 项对不上
+    # （第 3 周放假后只剩前几天的课，Dock 却仍显示到周日，点周日没有对应列 → 排版错乱）。
+    # 固定 7 列后列数与 Dock 恒等；放假的日子自然为空列。
+    max_col = 7
     rows = []
     prev_seg = None
     for sec in range(1, 11):
@@ -251,7 +266,7 @@ def table_html(parsed, week_monday=None):
                        f'<div class="cinfo cinfo-x">{esc(p["bld"])}·{esc(p["room"])}</div>'
                        f'<div class="cinfo cinfo-x">{esc(p["teacher"])}</div></td>')
             elif (d, sec) not in cell:
-                td += '<td data-col="%d"></td>' % d
+                td += '<td data-col="%d"%s></td>' % (d, _hol_cls(week_monday, d))
         rows.append(f'<tr class="seg-{seg_key}">{td}</tr>')
     body = "".join(rows)
     return "<table>" + body + "</table>"
@@ -273,6 +288,15 @@ def render_page(weeks, semester, current_week):
             _hd_ranges.append((_kb_date(_a), _kb_date(_b)))
         except Exception:
             pass
+    # 放假区间（给 JS 用：在 Dock 上把放假那天标出来）
+    _hol_js = []
+    for _a, _b in (HOLIDAY_RULES.get("holidays") or []):
+        try:
+            _da, _db = _kb_date(_a), _kb_date(_b)
+            _hol_js.append([_da.year, _da.month, _da.day, _db.year, _db.month, _db.day])
+        except Exception:
+            pass
+    _hol_js = json.dumps(_hol_js)
     panes = []
     for w in range(1, MAX_WEEK + 1):
         parsed = weeks.get(str(w), [])
@@ -440,6 +464,10 @@ h1{{font-size:21px;text-align:center;margin:6px 0 2px;color:#0b1220}}
   letter-spacing:.5px;color:#f59e0b;display:none}}
 .dockItem.isToday .dot{{display:block}}
 .dockItem.on .dot{{color:#fff}}
+/* 放假那天：淡灰 + 减淡，文案由 JS 写成「放假」 */
+.dockItem.holDay{{opacity:.45}}
+.dockItem.holDay b{{text-decoration:line-through;text-decoration-thickness:1px}}
+.dockItem.holDay i{{font-weight:800;letter-spacing:.3px}}
 
 /* 表格：separate 模式让圆角生效 */
 .kbGlass{{border-radius:22px;overflow:hidden;
@@ -478,6 +506,10 @@ td:last-child,th:last-child{{border-right:none}}
 tr.seg-am td:not(.cls):not(.time){{background:rgba(255,251,235,.6)}}
 tr.seg-pm td:not(.cls):not(.time){{background:rgba(255,247,237,.6)}}
 tr.seg-nt td:not(.cls):not(.time){{background:rgba(238,242,255,.65)}}
+/* 放假的空列：淡灰斜纹，一眼看出这天不上课 */
+td.hol{{background-image:repeating-linear-gradient(135deg,
+  rgba(100,116,139,.13) 0 6px, transparent 6px 12px) !important;
+  background-color:rgba(148,163,184,.10) !important}}
 
 /* 课程块：真圆角卡片 */
 td.cls{{position:relative;cursor:pointer;padding:5px 4px 5px 9px;
@@ -486,13 +518,10 @@ td.cls{{position:relative;cursor:pointer;padding:5px 4px 5px 9px;
   border-right-color:transparent;border-bottom-color:transparent;
   transition:transform .26s cubic-bezier(.34,1.35,.5,1), filter .26s ease, box-shadow .26s ease;
   box-shadow:0 2px 8px rgba(20,40,80,.10), inset 0 1px 0 rgba(255,255,255,.55)}}
-td.cls .cname{{line-height:1.32;font-size:12.5px;word-break:break-all}}
-td.cls .cinfo{{font-size:10.5px;margin-top:1px;line-height:1.4;word-break:break-all}}
-/* 课程块内只显示「课名 + 时间」两行；地点/教师带 cinfo-x 标记，直接隐藏。
-   用明确的 class 而不是 :nth-of-type —— 后者依赖子元素顺序，
-   一旦模板多插一个 div 就会错位（曾导致时间被误隐藏）。
-   弹窗 JS 仍按 .cinfo 全量读取，隐藏不影响详情展示。 */
-td.cls .cinfo-x{{display:none !important}}
+td.cls .cname{{line-height:1.30;font-size:12.5px;word-break:break-all}}
+/* 课程块内只显示「课名」；时间/地点/教师全部收进弹窗。
+   隐藏不影响弹窗：JS 用 querySelectorAll('.cinfo') 读取，display:none 的元素照样能取到文本。 */
+td.cls .cinfo{{display:none !important}}
 /* 右下角轻提示：可点开看详情 */
 td.cls::after{{content:'';position:absolute;right:6px;bottom:5px;width:0;height:0;
   border-left:4px solid transparent;border-bottom:4px solid rgba(15,23,42,.20)}}
@@ -913,6 +942,8 @@ kbAnnotate();
 var KB_MANUAL = false;   /* 用户是否手动选过某天 */
 var KB_FOCUS = null;     /* 当前聚焦的列 1..6 */
 var KB_WK = {current_week};   /* 当前显示周次 */
+/* 放假区间 [起Y,起M,起D, 止Y,止M,止D]，用于 Dock 上标记「放假」 */
+var KB_HOL = {_hol_js};
 
 function kbMin(s) {{
   var m = /^(\d{{1,2}}):(\d{{2}})$/.exec((s || '').trim());
@@ -932,7 +963,25 @@ function kbDateOf(ymd, n) {{
   d.setDate(d.getDate() + n);
   return (d.getMonth() + 1) + '/' + d.getDate();
 }}
-/* 切周时刷新 Dock 上的日期 */
+/* 该日期是否落在放假区间 */
+function kbIsHol(y, m, d) {{
+  var t = new Date(y, m - 1, d).getTime();
+  for (var i = 0; i < KB_HOL.length; i++) {{
+    var a = new Date(KB_HOL[i][0], KB_HOL[i][1] - 1, KB_HOL[i][2]).getTime();
+    var b = new Date(KB_HOL[i][3], KB_HOL[i][4] - 1, KB_HOL[i][5]).getTime();
+    if (t >= a && t <= b) return true;
+  }}
+  return false;
+}}
+/* 由该周周一日期 + 偏移，得到完整 [y, m, d] */
+function kbYmd(ymd, n) {{
+  var p = String(ymd || '').split('-');
+  if (p.length < 3) return null;
+  var d = new Date(parseInt(p[0], 10), parseInt(p[1], 10) - 1, parseInt(p[2], 10));
+  d.setDate(d.getDate() + n);
+  return [d.getFullYear(), d.getMonth() + 1, d.getDate()];
+}}
+/* 切周时刷新 Dock 上的日期，并把放假那天标成「放假」 */
 function kbDockDates(wk) {{
   var pane = document.querySelector('.pane[data-wk="' + wk + '"]');
   var mon = pane ? pane.getAttribute('data-mon') : '';
@@ -940,8 +989,11 @@ function kbDockDates(wk) {{
   for (var i = 0; i < items.length; i++) {{
     var c = parseInt(items[i].getAttribute('data-col'), 10) || 1;
     var dt = kbDateOf(mon, c - 1);
+    var ymd = kbYmd(mon, c - 1);
+    var hol = ymd ? kbIsHol(ymd[0], ymd[1], ymd[2]) : false;
     var it = items[i].querySelector('i');
-    if (it && dt) it.textContent = dt;
+    if (it) it.textContent = hol ? '放假' : (dt || '');
+    items[i].classList.toggle('holDay', hol);
   }}
 }}
 function kbSetThumb(col) {{
@@ -962,22 +1014,41 @@ function kbClearMark() {{
     if (bs[i].parentNode) bs[i].parentNode.removeChild(bs[i]);
   }}
 }}
+function kbCurPane() {{
+  return document.querySelector('.pane[data-wk="' + KB_WK + '"]');
+}}
+/* 本周中「日期等于今天」的列号(1..7)；本周不含今天则返回 -1。
+   不能用 new Date().getDay() —— 那只在看本周时才对，
+   翻到别的周会把同星期几误判成今天，导致所有周都标上「正在上课」。 */
+function kbTodayCol() {{
+  var pane = kbCurPane();
+  if (!pane) return -1;
+  var mon = pane.getAttribute('data-mon');
+  var d = new Date();
+  var today = (d.getMonth() + 1) + '/' + d.getDate();
+  for (var c = 1; c <= 7; c++) {{
+    if (kbDateOf(mon, c - 1) === today) return c;
+  }}
+  return -1;
+}}
 function kbMarkNow() {{
   kbClearMark();
-  var real = kbRealCol();
-  if (!KB_MANUAL) KB_FOCUS = (real >= 1 && real <= 6) ? real : null;
+  var pane = kbCurPane();
+  var real = kbTodayCol();          /* 本周里的真实今天；非本周为 -1 */
+  var weekHasToday = (real >= 1);
+  if (!KB_MANUAL) KB_FOCUS = (real >= 1 && real <= 7) ? real : null;
 
-  /* 1) 聚焦列高亮 */
-  if (KB_FOCUS) {{
-    var ns = document.querySelectorAll('th[data-col="' + KB_FOCUS + '"], td[data-col="' + KB_FOCUS + '"]');
+  /* 1) 聚焦列高亮 —— 只作用于当前周面板 */
+  if (KB_FOCUS && pane) {{
+    var ns = pane.querySelectorAll('th[data-col="' + KB_FOCUS + '"], td[data-col="' + KB_FOCUS + '"]');
     for (var i = 0; i < ns.length; i++) ns[i].classList.add('today');
   }}
 
-  /* 2) 当前课节（仅真实今天） */
-  var d = new Date();
-  var nowMin = d.getHours() * 60 + d.getMinutes();
-  if (real >= 1 && real <= 6) {{
-    var cs = document.querySelectorAll('td.cls[data-t0][data-col="' + real + '"]');
+  /* 2) 当前课节 —— 仅当本周确实包含今天，且只在当前周面板内查找 */
+  if (weekHasToday && pane) {{
+    var d = new Date();
+    var nowMin = d.getHours() * 60 + d.getMinutes();
+    var cs = pane.querySelectorAll('td.cls[data-t0][data-col="' + real + '"]');
     for (var k = 0; k < cs.length; k++) {{
       var a = kbMin(cs[k].getAttribute('data-t0'));
       var b = kbMin(cs[k].getAttribute('data-t1'));
@@ -992,13 +1063,16 @@ function kbMarkNow() {{
     }}
   }}
 
-  /* 3) 同步 Dock 选中态 + 今天圆点 */
+  /* 3) 同步 Dock 选中态 + 今天圆点（今天仅在本周出现） */
   var items = document.querySelectorAll('.dockItem');
   for (var q = 0; q < items.length; q++) {{
     var c = parseInt(items[q].getAttribute('data-col'), 10);
-    items[q].className = 'dockItem' + (c === KB_FOCUS ? ' on' : '') + (c === real ? ' isToday' : '');
+    var isT = weekHasToday && (c === real);
+    /* 用 classList 增量切换，保留 kbDockDates 打上的 holDay 标记 */
+    items[q].classList.toggle('on', c === KB_FOCUS);
+    items[q].classList.toggle('isToday', isT);
     var dt = items[q].querySelector('.dot');
-    if (dt) dt.textContent = (c === real) ? '今天' : '';
+    if (dt) dt.textContent = isT ? '今天' : '';
   }}
   kbSetThumb(KB_FOCUS || 0);
 }}
