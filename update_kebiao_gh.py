@@ -583,7 +583,10 @@ table tr:first-child th.today{{border-top-left-radius:0}}
 td.today{{font-weight:700}}
 
 /* ── 正在上课 ── */
-td.cls.now{{z-index:2}}
+/* z-index 必须 > 玻璃框(5)：正在上课的卡片要浮在液态玻璃之上，
+   否则会被 backdrop-filter 糊掉、看起来像整张消失。
+   （原值 2 会被同等特异性的 td.today.cls{{z-index:6}} 之后的覆盖逻辑压到玻璃下面） */
+td.cls.now{{z-index:7}}
 td.cls.now::after{{content:'';position:absolute;inset:2px;border-radius:12px;
   border:2.5px solid #f43f5e;pointer-events:none;animation:kbPulse 1.6s ease-in-out infinite}}
 @keyframes kbPulse{{
