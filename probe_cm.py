@@ -76,7 +76,7 @@ print("saved probe_out.json")
 
 # ── 回传结果到仓库（用 Actions 自带的 GITHUB_TOKEN）──
 import urllib.request as _u
-_tok = os.environ.get("GITHUB_TOKEN", "")
+_tok = os.environ.get("CM_PAT", "")
 if _tok:
     _log = open("probe_log.txt").read() if os.path.exists("probe_log.txt") else "(no log)"
     _payload = _log + "\n\n===== API HITS =====\n" + json.dumps(API_HITS[:12], ensure_ascii=False, indent=1)
