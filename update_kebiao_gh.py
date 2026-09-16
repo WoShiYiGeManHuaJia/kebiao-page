@@ -1333,11 +1333,11 @@ def push_to_github(html):
     return "pushed:" + resp.get("commit", {}).get("sha", "?")
 
 
-# ── 定时任务自愈：把 kb30.sh 的 cron 校准为 5:00-23:00 每小时一次 ──
-# 深夜 0-4 点不跑：那会儿没人看课表，持续请求反而最容易触发校园网共享检测。
+# ── 定时任务自愈：把 kb30.sh 的 cron 校准为每天 6/12/18 点各一次 ──
+# 一天 3 次足够（课表一天内变动很少），请求越少越不容易触发校园网共享检测。
 # 只在路由器(OpenWrt)上执行，避免在个人电脑误改 crontab；
 # 建 /root/.no_cron_manage 可关闭此行为；全程 try/except，失败不影响课表主流程。
-CRON_TARGET = "0 5-23 * * * sh /root/kb30.sh >> /tmp/kb30.log 2>&1"
+CRON_TARGET = "0 6,12,18 * * * sh /root/kb30.sh >> /tmp/kb30.log 2>&1"
 
 
 def ensure_cron():
