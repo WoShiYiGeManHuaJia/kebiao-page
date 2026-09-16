@@ -248,8 +248,8 @@ def table_html(parsed, week_monday=None):
                 t0, t1 = (p.get("time", "").split("-") + ["", ""])[:2]
                 td += (f'<td rowspan="{rs}" class="cls" data-col="{d}" data-t0="{esc(t0.strip())}" data-t1="{esc(t1.strip())}" style="background:{color};--tc:{tint}" data-tint="{tint}"><div class="cname">{esc(p["name"])}</div>'
                        f'<div class="cinfo">{esc(p["time"])}</div>'
-                       f'<div class="cinfo">{esc(p["bld"])}·{esc(p["room"])}</div>'
-                       f'<div class="cinfo">{esc(p["teacher"])}</div></td>')
+                       f'<div class="cinfo cinfo-x">{esc(p["bld"])}·{esc(p["room"])}</div>'
+                       f'<div class="cinfo cinfo-x">{esc(p["teacher"])}</div></td>')
             elif (d, sec) not in cell:
                 td += '<td data-col="%d"></td>' % d
         rows.append(f'<tr class="seg-{seg_key}">{td}</tr>')
@@ -452,7 +452,7 @@ h1{{font-size:21px;text-align:center;margin:6px 0 2px;color:#0b1220}}
 }}
 table{{width:100%;border-collapse:separate;border-spacing:0;table-layout:fixed;background:transparent}}
 th,td{{border-right:1px solid var(--line);border-bottom:1px solid var(--line);
-  padding:5px 3px;vertical-align:middle;text-align:center;font-size:12.5px}}
+  padding:3px 2px;vertical-align:middle;text-align:center;font-size:12.5px}}
 th{{background:rgba(43,90,160,.90);color:#fff;font-weight:700;font-size:12px;padding:8px 2px 7px;
   border-bottom:none;line-height:1.25}}
 th[data-col]{{cursor:pointer;-webkit-tap-highlight-color:transparent}}
@@ -461,7 +461,7 @@ tr:last-child td{{border-bottom:none}}
 td:last-child,th:last-child{{border-right:none}}
 
 /* 时间列：时段色条 + 圆角 */
-.time{{width:var(--tw);background:rgba(248,250,252,.9);padding:6px 2px}}
+.time{{width:var(--tw);background:rgba(248,250,252,.9);padding:4px 2px}}
 .time .sec-no{{font-size:11px;font-weight:800;color:#1e293b;line-height:1.25}}
 .time .sec-tag{{font-size:10px;margin-top:2px;font-weight:800;line-height:1.25}}
 .time.s-am{{background:rgba(255,251,235,.95)}}
@@ -480,7 +480,7 @@ tr.seg-pm td:not(.cls):not(.time){{background:rgba(255,247,237,.6)}}
 tr.seg-nt td:not(.cls):not(.time){{background:rgba(238,242,255,.65)}}
 
 /* 课程块：真圆角卡片 */
-td.cls{{position:relative;cursor:pointer;padding:7px 5px 7px 10px;
+td.cls{{position:relative;cursor:pointer;padding:5px 4px 5px 9px;
   -webkit-tap-highlight-color:transparent;background-clip:padding-box;
   border-radius:14px;background-clip:border-box;
   border-right-color:transparent;border-bottom-color:transparent;
@@ -488,8 +488,11 @@ td.cls{{position:relative;cursor:pointer;padding:7px 5px 7px 10px;
   box-shadow:0 2px 8px rgba(20,40,80,.10), inset 0 1px 0 rgba(255,255,255,.55)}}
 td.cls .cname{{line-height:1.32;font-size:12.5px;word-break:break-all}}
 td.cls .cinfo{{font-size:10.5px;margin-top:1px;line-height:1.4;word-break:break-all}}
-/* 只显示"时间"，地点/教师收起 → 点开弹窗看，课程条显著变短 */
-td.cls .cinfo:nth-of-type(n+2){{display:none}}
+/* 课程块内只显示「课名 + 时间」两行；地点/教师带 cinfo-x 标记，直接隐藏。
+   用明确的 class 而不是 :nth-of-type —— 后者依赖子元素顺序，
+   一旦模板多插一个 div 就会错位（曾导致时间被误隐藏）。
+   弹窗 JS 仍按 .cinfo 全量读取，隐藏不影响详情展示。 */
+td.cls .cinfo-x{{display:none !important}}
 /* 右下角轻提示：可点开看详情 */
 td.cls::after{{content:'';position:absolute;right:6px;bottom:5px;width:0;height:0;
   border-left:4px solid transparent;border-bottom:4px solid rgba(15,23,42,.20)}}
