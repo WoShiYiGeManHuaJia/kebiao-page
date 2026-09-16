@@ -146,11 +146,22 @@ def esc(s):
             .replace(">", "&gt;").replace('"', "&quot;"))
 
 
+# 访问学校接口的 UA —— 必须伪装成正常浏览器。
+# urllib 默认是 "Python-urllib/3.x"，这是个一眼机器人的独立指纹：
+# 路由器下真实设备的 UA 若已统一伪装，唯独脚本露出一个 Python 指纹，
+# 检测系统就会把它当成「第 N 个设备」，从而判定多终端共享。
+# 如需与路由器上已有的伪装 UA 完全一致，改这一行即可。
+UA_BROWSER = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+
+
 def http_get(url, headers=None, data=None, method=None, timeout=15):
     if isinstance(url, urllib.request.Request):
         req = url
     else:
-        req = urllib.request.Request(url, headers=headers or {}, data=data, method=method)
+        h = {"User-Agent": UA_BROWSER}
+        if headers:
+            h.update(headers)
+        req = urllib.request.Request(url, headers=h, data=data, method=method)
     with urllib.request.urlopen(req, timeout=timeout) as r:
         return r.read()
 
