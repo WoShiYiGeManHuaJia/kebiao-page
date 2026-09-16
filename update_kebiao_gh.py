@@ -470,7 +470,7 @@ h1{{font-size:21px;text-align:center;margin:6px 0 2px;color:#0b1220}}
 .dockItem.holDay i{{font-weight:800;letter-spacing:.3px}}
 
 /* 表格：separate 模式让圆角生效 */
-.kbGlass{{border-radius:22px;overflow:hidden;
+.kbGlass{{position:relative;border-radius:22px;overflow:hidden;
   background:rgba(255,255,255,.88);
   -webkit-backdrop-filter:blur(10px) saturate(150%);backdrop-filter:blur(10px) saturate(150%);
   border:1px solid rgba(255,255,255,.85);
@@ -537,19 +537,20 @@ th.today{{background:linear-gradient(135deg,#1d4ed8,#3b82f6) !important;
 th.today .todayTag{{display:block;margin:3px auto 0;width:82%;font-size:9px;font-weight:800;
   color:#fff;background:rgba(255,255,255,.34);border-radius:999px;padding:2px 0;
   letter-spacing:1px;box-shadow:0 1px 3px rgba(0,0,0,.14)}}
-td.today:not(.cls){{background:rgba(59,130,246,.13) !important;
-  box-shadow:inset 2px 0 0 rgba(37,99,235,.55), inset -2px 0 0 rgba(37,99,235,.55)}}
+/* 原蓝色列高亮已移除 —— 整列聚焦改由悬浮液态毛玻璃圆角框承担（见 .kbColGlass） */
+td.today:not(.cls){{background:transparent !important;box-shadow:none}}
 /* 当天课程块：保留课程本色并加深一点点🤏，同时微放大 —— 不再被蓝色冲淡 */
 td.today.cls{{
   filter:saturate(1.28) brightness(.93);
-  transform:scale(1.035);
-  z-index:3;
-  box-shadow:0 6px 16px rgba(20,40,80,.18), inset 0 1px 0 rgba(255,255,255,.6);
+  transform:scale(1.05);
+  /* 必须高于玻璃框(z-index:5)：卡片浮在玻璃之上，课名才不会被 backdrop-filter 糊掉 */
+  z-index:6;
+  box-shadow:0 10px 26px rgba(20,40,80,.26), inset 0 1px 0 rgba(255,255,255,.6);
   transition:transform .26s cubic-bezier(.34,1.35,.5,1), filter .26s ease, box-shadow .26s ease;
 }}
 td.today.cls .cname{{font-weight:800}}
 td.today.cls::before{{width:5px;left:5px}}
-tr td.today:not(.cls):first-of-type{{box-shadow:inset -2px 0 0 rgba(37,99,235,.55)}}
+tr td.today:not(.cls):first-of-type{{box-shadow:none}}
 /* 今天列第一个/最后一个格子的上下封口 */
 table tr:first-child th.today{{border-top-left-radius:0}}
 td.today{{font-weight:700}}
@@ -565,6 +566,27 @@ td.cls.now::after{{content:'';position:absolute;inset:2px;border-radius:12px;
 .nowBadge{{margin:5px 5px 0 7px;font-size:9.5px;font-weight:800;color:#fff;
   background:linear-gradient(135deg,#f43f5e,#fb7185);border-radius:999px;
   padding:3px 0;letter-spacing:.5px;box-shadow:0 2px 7px rgba(244,63,94,.4)}}
+/* ── 选中列：上层悬浮液态毛玻璃圆角框（替代原蓝色高亮）── */
+.kbColGlass{{position:absolute;z-index:5;pointer-events:none;
+  border-radius:20px;opacity:0;
+  background:rgba(255,255,255,.25);
+  -webkit-backdrop-filter:blur(12px) saturate(180%);backdrop-filter:blur(12px) saturate(180%);
+  border:1px solid rgba(255,255,255,.45);
+  box-shadow:0 8px 32px rgba(31,38,135,.15), inset 0 1px 1px rgba(255,255,255,.6), inset 0 -1px 1px rgba(255,255,255,.2);
+  transition:opacity .4s ease}}
+/* 曲面高光反光条 */
+.kbColGlass::before{{content:'';position:absolute;top:5%;left:15%;width:60%;height:35%;
+  background:linear-gradient(135deg,rgba(255,255,255,.55) 0%,rgba(255,255,255,0) 100%);
+  border-radius:50%;filter:blur(6px);pointer-events:none}}
+.kbColGlass.on{{opacity:1;animation:liquidPop .4s cubic-bezier(.34,1.56,.64,1)}}
+@keyframes liquidPop{{
+  0%{{transform:scale(.94);border-radius:26px;opacity:0}}
+  60%{{transform:scale(1.03);border-radius:18px}}
+  100%{{transform:scale(1);border-radius:20px;opacity:1}}}}
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){{
+  .kbColGlass{{background:rgba(255,255,255,.55)}}
+}}
+
 
 .empty{{text-align:center;color:#64748b;padding:44px 0;font-size:15px}}
 /* 假期调休提示条 */
@@ -1079,8 +1101,68 @@ function kbMarkNow() {{
     if (dt) dt.textContent = isT ? '今天' : '';
   }}
   kbSetThumb(KB_FOCUS || 0);
+  /* 玻璃框：先定位一次，放大动画(0.26s)结束后再校正一次几何 */
+  kbGlassFrame(pane, KB_FOCUS);
+  setTimeout(function () {{ kbGlassFrame(kbCurPane(), KB_FOCUS); }}, 340);
 }}
 /* 点击 Dock 项：手动聚焦某一天 */
+
+/* ── 选中列：液态玻璃框 ──
+   悬浮在整列之上（z-index:5），课程卡片 z-index:6 浮在玻璃之上，
+   所以课名文字不会被 backdrop-filter 糊掉。 */
+var KB_FRAME_KEY = '';
+function kbFrameRect(pane, col) {{
+  var box = pane ? pane.querySelector('.kbGlass') : null;
+  if (!box || !col || col < 1 || col > 7) return null;
+  var cells = pane.querySelectorAll('td[data-col="' + col + '"]');
+  if (!cells.length) return null;
+  var br = box.getBoundingClientRect();
+  var t = 1e9, b = -1e9, l = 1e9, r = -1e9, n = 0;
+  for (var i = 0; i < cells.length; i++) {{
+    var rc = cells[i].getBoundingClientRect();
+    if (!rc.width && !rc.height) continue;
+    if (rc.top < t) t = rc.top;
+    if (rc.bottom > b) b = rc.bottom;
+    if (rc.left < l) l = rc.left;
+    if (rc.right > r) r = rc.right;
+    n++;
+  }}
+  if (!n || t >= b || l >= r) return null;
+  return {{ top: Math.round(t - br.top + 1), left: Math.round(l - br.left + 1),
+           w: Math.round(r - l - 2), h: Math.round(b - t - 2) }};
+}}
+function kbGlassFrame(pane, col) {{
+  if (!pane) return;
+  var box = pane.querySelector('.kbGlass');
+  if (!box) return;
+  /* 清掉其它周面板里可能残留的玻璃框（切周时旧面板被隐藏，不会自己消失） */
+  var olds = document.querySelectorAll('.kbColGlass');
+  for (var q = 0; q < olds.length; q++) {{
+    if (olds[q].parentNode !== box && olds[q].parentNode) olds[q].parentNode.removeChild(olds[q]);
+  }}
+  var rc = kbFrameRect(pane, col);
+  var el = box.querySelector('.kbColGlass');
+  if (!rc) {{ if (el) el.parentNode.removeChild(el); KB_FRAME_KEY = ''; return; }}
+  if (!el) {{
+    el = document.createElement('div');
+    el.className = 'kbColGlass';
+    box.appendChild(el);
+  }}
+  el.style.top = rc.top + 'px';
+  el.style.left = rc.left + 'px';
+  el.style.width = rc.w + 'px';
+  el.style.height = rc.h + 'px';
+  /* 只在「换列 / 换周」时重播弹性弹出动画；
+     每 60s 的 kbMarkNow 与 resize 只更新几何，不会反复弹 */
+  var colKey = (pane.getAttribute('data-wk') || '') + '|' + col;
+  if (colKey !== KB_FRAME_KEY) {{
+    KB_FRAME_KEY = colKey;
+    el.classList.remove('on'); void el.offsetWidth; el.classList.add('on');
+  }} else if (!el.classList.contains('on')) {{
+    el.classList.add('on');
+  }}
+}}
+window.addEventListener('resize', function () {{ kbGlassFrame(kbCurPane(), KB_FOCUS); }});
 function setFocusDay(col) {{
   KB_MANUAL = true;
   KB_FOCUS = col;
