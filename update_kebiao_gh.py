@@ -778,10 +778,10 @@ function kbRoomCard(text, tint) {{
   var bld = (parts[0] || '').trim();
   var room = (parts.slice(1).join('·') || '').trim();
   if (!room) {{ room = bld; bld = ''; }}
-  var m = /([A-Za-z]{{1,4}}[－-]?\d{{1,4}}(?:[－-]\d{{1,4}})?)/.exec(room);
+  var m = /([A-Za-z]{{1,4}}[－-]?\\d{{1,4}}(?:[－-]\\d{{1,4}})?)/.exec(room);
   var code = m ? m[1] : room;
   var rest = m ? room.replace(m[1], '') : '';
-  rest = rest.replace(/^[（(\s　]+/, '').replace(/[）)\s　]+$/, '');
+  rest = rest.replace(/^[（(\\s　]+/, '').replace(/[）)\\s　]+$/, '');
   var deep = kbTint(tint, 0.32);
   var lite1 = kbTint(tint, 0.95), lite2 = kbTint(tint, 0.87);
   var h = '<div class="kbRoom" style="background:linear-gradient(135deg,' + lite1 + ',' + lite2 +
@@ -949,7 +949,7 @@ var KB_FOCUS = null;     /* 当前聚焦的列 1..6 */
 var KB_WK = {current_week};   /* 当前显示周次 */
 
 function kbMin(s) {{
-  var m = /^(\d{{1,2}}):(\d{{2}})$/.exec((s || '').trim());
+  var m = /^(\\d{{1,2}}):(\\d{{2}})$/.exec((s || '').trim());
   if (!m) return -1;
   return parseInt(m[1], 10) * 60 + parseInt(m[2], 10);
 }}
