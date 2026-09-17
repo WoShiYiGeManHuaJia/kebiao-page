@@ -103,16 +103,32 @@ jobs:
           echo ""
           echo "=== END ==="
 
-      - name: save result to repo
+      - name: save result to repo via API
+        env:
+          GH_TOKEN_API: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          mkdir -p diag
-          cp "${RUNNER_TEMP}/diag.txt" diag/result.txt
-          git config user.name "diag-bot"
-          git config user.email "diag-bot@users.noreply.github.com"
-          git add diag/result.txt
-          if git diff --cached --quiet; then
-            echo "NO_CHANGE"
-          else
-            git commit -m "diag result $(date -u +%F_%H%M)"
-            git push origin main
-          fi
+          python3 - <<'PYEOF'
+          import json,base64,urllib.request,os
+          TOK=os.environ.get("GH_TOKEN_API") or os.environ.get("GITHUB_TOKEN")
+          REPO="WoShiYiGeManHuaJia/kebiao-page"
+          SRC=os.path.join(os.environ["RUNNER_TEMP"],"diag.txt")
+          content=base64.b64encode(open(SRC,'rb').read()).decode()
+          H={"Authorization":"token "+TOK,"Accept":"application/vnd.github+json","Content-Type":"application/json","User-Agent":"diag"}
+          path="/repos/%s/contents/diag/result.txt"%REPO
+          sha=None
+          try:
+              r=urllib.request.Request("https://api.github.com"+path+"?ref=main",headers=H)
+              sha=json.loads(urllib.request.urlopen(r,timeout=60).read())["sha"]
+          except Exception as e:
+              print("no existing file:",e)
+          body={"message":"diag result","content":content,"branch":"main"}
+          if sha: body["sha"]=sha
+          req=urllib.request.Request("https://api.github.com"+path,data=json.dumps(body).encode(),method="PUT",headers=H)
+          try:
+              d=json.loads(urllib.request.urlopen(req,timeout=90).read())
+              print("SAVED OK:",d["content"]["path"])
+          except Exception as e:
+              print("SAVE FAIL:",e)
+              try: print(e.read().decode()[:300])
+              except Exception: pass
+          PYEOF
