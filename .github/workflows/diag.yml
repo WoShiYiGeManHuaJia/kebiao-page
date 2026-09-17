@@ -3,53 +3,116 @@ on:
   workflow_dispatch: {}
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   diag:
     runs-on: ubuntu-latest
     timeout-minutes: 12
     steps:
-      - name: 1. runner 出口 IP 与地理位置
-        run: |
-          echo "--- outbound ip ---"
-          curl -sS --max-time 15 https://api.ipify.org?format=json || echo "ipify fail"
-          echo ""
-          curl -sS --max-time 15 http://ip-api.com/json/ || echo "ip-api fail"
-          echo ""
+      - uses: actions/checkout@v4
 
-      - name: 2. TCP 连通性（81 端口，逐级超时）
-        run: |
-          for t in 5 15 45; do
-            echo "--- timeout=${t}s ---"
-            start=$(date +%s.%N)
-            timeout $t bash -c 'cat < /dev/null > /dev/tcp/222.243.161.213/81' 2>&1 && echo "TCP OK" || echo "TCP FAIL(rc=$?)"
-            end=$(date +%s.%N)
-            echo "elapsed: $(echo "$end - $start" | bc)"
-          done
-
-      - name: 3. HTTP 请求（curl 详细计时，60s 超时）
-        run: |
-          echo "--- GET /hnrjzyxyhd/ ---"
-          curl -sS -i --max-time 60 -w "\n[http=%{http_code} dns=%{time_namelookup}s connect=%{time_connect}s starttransfer=%{time_starttransfer}s total=%{time_total}s size=%{size_download}]\n" \
-            "http://222.243.161.213:81/hnrjzyxyhd/" 2>&1 | head -40
-
-      - name: 4. 登录接口（真实账号，60s 超时）
+      - name: run diagnostics
         env:
           U: ${{ secrets.KB_USER }}
           P: ${{ secrets.KB_PWD }}
           S: ${{ secrets.KB_SCH }}
         run: |
-          echo "--- login ---"
-          curl -sS --max-time 60 -w "\n[http=%{http_code} connect=%{time_connect}s total=%{time_total}s]\n" \
-            -X POST \
-            "http://222.243.161.213:81/hnrjzyxyhd/login?userNo=${U}&pwd=${P}&encode=1&captchaData=&codeVal=" \
-            2>&1 | head -c 600
+          OUT="${RUNNER_TEMP}/diag.txt"
+          : > "$OUT"
+          exec > >(tee -a "$OUT") 2>&1
+
+          echo "=== 0. 时间 ==="
+          date -u '+UTC %F %T'
+          TZ='Asia/Shanghai' date '+CST %F %T'
           echo ""
 
-      - name: "5. 备用 - 换 HTTPS/80 端口探测"
-        run: |
+          echo "=== 1. runner 出口 IP / 地理位置 ==="
+          curl -sS --max-time 15 "https://api.ipify.org?format=json" || echo "ipify fail"
+          echo ""
+          curl -sS --max-time 15 "http://ip-api.com/json/" || echo "ip-api fail"
+          echo ""
+
+          echo "=== 2. TCP 连通性 222.243.161.213:81 (逐级超时) ==="
+          for t in 5 15 45; do
+            echo "--- bash tcp timeout=${t}s ---"
+            s=$(date +%s%N)
+            if timeout $t bash -c 'cat < /dev/null > /dev/tcp/222.243.161.213/81' 2>/dev/null; then
+              echo "TCP OK"
+            else
+              echo "TCP FAIL rc=$?"
+            fi
+            e=$(date +%s%N)
+            echo "elapsed_ms=$(( (e-s)/1000000 ))"
+          done
+          echo ""
+
+          echo "=== 3. HTTP GET /hnrjzyxyhd/ (60s) ==="
+          curl -sS -i --max-time 60 \
+            -w "\n[http=%{http_code} dns=%{time_namelookup}s connect=%{time_connect}s starttransfer=%{time_starttransfer}s total=%{time_total}s size=%{size_download}]\n" \
+            "http://222.243.161.213:81/hnrjzyxyhd/" 2>&1 | head -40
+          echo ""
+
+          echo "=== 4. 登录接口 (60s) ==="
+          curl -sS --max-time 60 -o /tmp/login.json \
+            -w "[http=%{http_code} dns=%{time_namelookup}s connect=%{time_connect}s starttransfer=%{time_starttransfer}s total=%{time_total}s size=%{size_download}]\n" \
+            -X POST \
+            --data-urlencode "userNo=${U}" --data-urlencode "pwd=${P}" \
+            --data-urlencode "encode=1" --data-urlencode "captchaData=" --data-urlencode "codeVal=" \
+            -G "http://222.243.161.213:81/hnrjzyxyhd/login" 2>&1 | head -10
+          echo "--- login response (前400字符) ---"
+          head -c 400 /tmp/login.json 2>/dev/null || echo "(no response)"
+          echo ""
+
+          echo "=== 5. 全周拉取测试 (week 1..20, 每步60s) ==="
+          TOKEN=$(python3 -c "
+          import json,sys
+          try:
+              d=json.load(open('/tmp/login.json'))
+              print(d.get('data',{}).get('token','') if d.get('code')=='1' else '')
+          except Exception as e:
+              print('')
+          ")
+          if [ -z "$TOKEN" ]; then
+            echo "未取得 token，跳过"
+          else
+            echo "token len=${#TOKEN}"
+            ok=0; fail=0
+            for w in 1 2 3 20; do
+              code=$(curl -sS -o /tmp/w$w.json --max-time 60 -w "%{http_code}" \
+                -H "Token: $TOKEN" -H "schoolCode: $S" \
+                "http://222.243.161.213:81/hnrjzyxyhd/student/curriculum?week=$w&kbjcmsid=" 2>&1)
+              n=$(python3 -c "
+          import json
+          try:
+              d=json.load(open('/tmp/w$w.json'))
+              print(len(d.get('courses') or []))
+          except Exception:
+              print('ERR')
+          " 2>/dev/null)
+              echo "week=$w http=$code courses=$n"
+            done
+          fi
+          echo ""
+
+          echo "=== 6. 备用端口探测 ==="
           for u in "http://222.243.161.213/" "https://222.243.161.213/" "http://222.243.161.213:81/"; do
             echo "--- $u ---"
             curl -sS -o /dev/null --max-time 25 -w "http=%{http_code} connect=%{time_connect}s total=%{time_total}s\n" "$u" 2>&1 | head -3
           done
+          echo ""
+          echo "=== END ==="
+
+      - name: save result to repo
+        run: |
+          mkdir -p diag
+          cp "${RUNNER_TEMP}/diag.txt" diag/result.txt
+          git config user.name "diag-bot"
+          git config user.email "diag-bot@users.noreply.github.com"
+          git add diag/result.txt
+          if git diff --cached --quiet; then
+            echo "NO_CHANGE"
+          else
+            git commit -m "diag result $(date -u +%F_%H%M)"
+            git push origin main
+          fi
