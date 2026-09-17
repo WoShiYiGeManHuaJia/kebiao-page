@@ -1,10 +1,10 @@
 === 0. 时间 ===
-UTC 2026-09-17 18:41:10
-CST 2026-09-18 02:41:10
+UTC 2026-09-17 18:49:48
+CST 2026-09-18 02:49:48
 
 === 1. runner 出口 IP / 地理位置 ===
-{"ip":"57.151.128.128"}
-{"status":"success","country":"United States","countryCode":"US","region":"WY","regionName":"Wyoming","city":"Cheyenne","zip":"82001","lat":41.13925,"lon":-104.816154,"timezone":"America/Denver","isp":"Microsoft Corporation","org":"Microsoft Azure Cloud (westcentralus)","as":"AS8075 Microsoft Corporation","query":"57.151.128.128"}
+{"ip":"20.119.94.176"}
+{"status":"success","country":"United States","countryCode":"US","region":"VA","regionName":"Virginia","city":"Boydton","zip":"23917","lat":36.677696,"lon":-78.37471,"timezone":"America/New_York","isp":"Microsoft Corporation","org":"Microsoft Azure Cloud (eastus)","as":"AS8075 Microsoft Corporation","query":"20.119.94.176"}
 === 2. TCP 连通性 222.243.161.213:81 (逐级超时) ===
 --- bash tcp timeout=5s ---
 TCP FAIL rc=124
@@ -19,11 +19,11 @@ elapsed_ms=45003
 === 3. HTTP GET /hnrjzyxyhd/ (60s) ===
 curl: (28) Connection timed out after 60002 milliseconds
 
-[http=000 dns=0.000018s connect=0.000000s starttransfer=0.000000s total=60.002372s size=0]
+[http=000 dns=0.000018s connect=0.000000s starttransfer=0.000000s total=60.002585s size=0]
 
 === 4. 登录接口 (60s) ===
 curl: (28) Connection timed out after 60002 milliseconds
-[http=000 dns=0.000046s connect=0.000000s starttransfer=0.000000s total=60.002936s size=0]
+[http=000 dns=0.000016s connect=0.000000s starttransfer=0.000000s total=60.002541s size=0]
 --- login response (前400字符) ---
 (no response)
 
@@ -32,12 +32,12 @@ curl: (28) Connection timed out after 60002 milliseconds
 
 === 6. 备用端口探测 ===
 --- http://222.243.161.213/ ---
-http=200 connect=0.206027s total=0.834113s
+http=200 connect=0.252043s total=1.018283s
 --- https://222.243.161.213/ ---
 curl: (28) Connection timed out after 25002 milliseconds
-http=000 connect=0.000000s total=25.002288s
+http=000 connect=0.000000s total=25.002992s
 --- http://222.243.161.213:81/ ---
 curl: (28) Connection timed out after 25002 milliseconds
-http=000 connect=0.000000s total=25.002112s
+http=000 connect=0.000000s total=25.002223s
 
 === END ===
