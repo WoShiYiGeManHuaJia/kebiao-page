@@ -1,0 +1,58 @@
+name: diag3-8080-api
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  d3:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: run
+        env:
+          U: ${{ secrets.KB_USER }}
+          P: ${{ secrets.KB_PWD }}
+          S: ${{ secrets.KB_SCH }}
+        run: |
+          OUT="${RUNNER_TEMP}/d3.txt"; : > "$OUT"
+          exec > >(tee -a "$OUT") 2>&1
+          for BASE in "http://222.243.161.213:8080" "http://222.243.161.213"; do
+            echo "######## BASE=$BASE ########"
+            echo "--- root ---"
+            curl -sS -i --max-time 20 "$BASE/" 2>&1 | head -8 || true
+            echo ""
+            echo "--- /hnrjzyxyhd/ ---"
+            curl -sS -i --max-time 20 "$BASE/hnrjzyxyhd/" 2>&1 | head -8 || true
+            echo ""
+            echo "--- login ---"
+            curl -sS --max-time 25 -o /tmp/l.json -w "[http=%{http_code} total=%{time_total}s]\n" \
+              -G "$BASE/hnrjzyxyhd/login" \
+              --data-urlencode "userNo=${U}" --data-urlencode "pwd=${P}" \
+              --data-urlencode "encode=1" --data-urlencode "captchaData=" --data-urlencode "codeVal=" 2>&1 | head -3 || true
+            echo "resp:"; head -c 400 /tmp/l.json 2>/dev/null || true; echo ""
+            echo ""
+          done
+          echo "=== END ==="
+
+      - name: save
+        env:
+          T: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python3 - <<'PYEOF'
+          import json,base64,urllib.request,os
+          TOK=os.environ["T"]; REPO="WoShiYiGeManHuaJia/kebiao-page"
+          content=base64.b64encode(open(os.path.join(os.environ["RUNNER_TEMP"],"d3.txt"),'rb').read()).decode()
+          H={"Authorization":"token "+TOK,"Accept":"application/vnd.github+json","Content-Type":"application/json","User-Agent":"d"}
+          path="/repos/%s/contents/diag/result3.txt"%REPO
+          sha=None
+          try: sha=json.loads(urllib.request.urlopen(urllib.request.Request("https://api.github.com"+path+"?ref=main",headers=H),timeout=60).read())["sha"]
+          except Exception as e: print("no existing")
+          body={"message":"diag3","content":content,"branch":"main"}
+          if sha: body["sha"]=sha
+          try:
+              d=json.loads(urllib.request.urlopen(urllib.request.Request("https://api.github.com"+path,data=json.dumps(body).encode(),method="PUT",headers=H),timeout=90).read())
+              print("SAVED")
+          except Exception as e: print("FAIL",e)
+          PYEOF
