@@ -20,25 +20,25 @@ jobs:
           exec > >(tee -a "$OUT") 2>&1
           echo "=== A. 端口扫描 222.243.161.213 ==="
           for p in 80 81 443 8000 8080 8888 8081 82; do
-            code=$(curl -sS -o /dev/null --max-time 12 -w "%{http_code}|c=%{time_connect}s" "http://222.243.161.213:$p/" 2>/dev/null)
+            code=$(curl -sS -o /dev/null --max-time 12 -w "%{http_code}|c=%{time_connect}s" "http://222.243.161.213:$p/" 2>/dev/null || echo "TIMEOUT")
             echo "port=$p -> $code"
           done
           echo ""
           echo "=== B. 80 端口上是否有 /hnrjzyxyhd 接口 ==="
-          curl -sS -i --max-time 20 "http://222.243.161.213/hnrjzyxyhd/" 2>&1 | head -15
+          curl -sS -i --max-time 20 "http://222.243.161.213/hnrjzyxyhd/" 2>&1 | head -15 || true
           echo ""
           echo "--- 80 端口登录尝试 ---"
           curl -sS --max-time 25 -o /tmp/l80.json -w "[http=%{http_code} total=%{time_total}s]\n" \
             -G "http://222.243.161.213/hnrjzyxyhd/login" \
             --data-urlencode "userNo=${U}" --data-urlencode "pwd=${P}" \
-            --data-urlencode "encode=1" --data-urlencode "captchaData=" --data-urlencode "codeVal=" 2>&1 | head -5
+            --data-urlencode "encode=1" --data-urlencode "captchaData=" --data-urlencode "codeVal=" 2>&1 | head -5 || true
           echo "resp:"; head -c 300 /tmp/l80.json 2>/dev/null; echo ""
           echo ""
           echo "=== C. 81 端口根目录 (25s) ==="
-          curl -sS -i --max-time 25 "http://222.243.161.213:81/" 2>&1 | head -12
+          curl -sS -i --max-time 25 "http://222.243.161.213:81/" 2>&1 | head -12 || true
           echo ""
           echo "=== D. 从 Actions 访问 Cloudflare Worker ==="
-          curl -sS --max-time 25 -w "\n[http=%{http_code} total=%{time_total}s]\n" "https://kebiao.wispy-hill-817a.workers.dev/" 2>&1 | head -20
+          curl -sS --max-time 25 -w "\n[http=%{http_code} total=%{time_total}s]\n" "https://kebiao.wispy-hill-817a.workers.dev/" 2>&1 | head -20 || true
           echo ""
           echo "=== E. traceroute 到 81 (ICMP/TCP) ==="
           (which traceroute && timeout 40 traceroute -T -p 81 -m 12 -w 3 222.243.161.213 2>&1 | head -15) || echo "no traceroute"
