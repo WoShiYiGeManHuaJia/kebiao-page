@@ -346,8 +346,9 @@ def render_page(weeks, semester, current_week):
     panes_html = "".join(panes)
     return f"""<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1"><title>我的课表</title><style>
+
 *{{margin:0;padding:0;box-sizing:border-box}}
-:root{{--line:rgba(148,163,184,.30);--ink:#0f172a;--tw:56px}}
+:root{{--line:transparent;--ink:#0f172a;--tw:56px}}
 html{{-webkit-text-size-adjust:100%}}
 body{{
   font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei',sans-serif;
@@ -513,7 +514,12 @@ h1{{font-size:21px;text-align:center;margin:6px 0 2px;color:#0b1220}}
 
 /* 表格：separate 模式让圆角生效 */
 .kbGlass{{position:relative;border-radius:22px;overflow:hidden;
-  background:rgba(255,255,255,.88);
+  background:
+    linear-gradient(168deg,
+      rgba(226,236,252,.95) 0%,
+      rgba(236,231,252,.95) 34%,
+      rgba(228,244,252,.95) 62%,
+      rgba(238,233,252,.95) 100%);
   -webkit-backdrop-filter:blur(10px) saturate(150%);backdrop-filter:blur(10px) saturate(150%);
   border:1px solid rgba(255,255,255,.85);
   box-shadow:0 14px 38px rgba(31,38,135,.14), inset 0 1px 0 rgba(255,255,255,.95)}}
@@ -531,35 +537,43 @@ tr:last-child td{{border-bottom:none}}
 td:last-child,th:last-child{{border-right:none}}
 
 /* 时间列：时段色条 + 圆角 */
-.time{{width:var(--tw);background:rgba(248,250,252,.9);padding:4px 2px}}
+.time{{width:var(--tw);background:linear-gradient(180deg,rgba(248,250,252,.94),rgba(240,244,251,.90));padding:4px 2px}}
 .time .sec-no{{font-size:11px;font-weight:800;color:#1e293b;line-height:1.25}}
 .time .sec-tag{{font-size:10px;margin-top:2px;font-weight:800;line-height:1.25}}
-.time.s-am{{background:rgba(255,251,235,.95)}}
+.time.s-am{{background:linear-gradient(180deg,rgba(255,251,235,.96),rgba(255,246,222,.91))}}
 .time.s-am .sec-no{{color:#92400e}}
 .time.s-am .sec-tag{{color:#f59e0b}}
-.time.s-pm{{background:rgba(255,247,237,.95)}}
+.time.s-pm{{background:linear-gradient(180deg,rgba(255,247,237,.96),rgba(255,241,226,.91))}}
 .time.s-pm .sec-no{{color:#9a3412}}
 .time.s-pm .sec-tag{{color:#f97316}}
-.time.s-nt{{background:rgba(238,242,255,.95)}}
+.time.s-nt{{background:linear-gradient(180deg,rgba(238,242,255,.96),rgba(231,237,254,.91))}}
 .time.s-nt .sec-no{{color:#3730a3}}
 .time.s-nt .sec-tag{{color:#6366f1}}
 
-/* 空格子时段底色 */
-tr.seg-am td:not(.cls):not(.time){{background:rgba(255,251,235,.6)}}
-tr.seg-pm td:not(.cls):not(.time){{background:rgba(255,247,237,.6)}}
-tr.seg-nt td:not(.cls):not(.time){{background:rgba(238,242,255,.65)}}
+/* 空格子时段底色
+   ⚠️ 关键：必须挂在 tr 上，并把空白格 td 设为 transparent。
+   课程卡片是带 border-radius 的 td，圆角裁掉的四个角落会露出「它背后那一层」。
+   若背后是 .kbGlass 的蓝紫渐变、而空白格显示的是行渐变，四角就会出现
+   既不是背景色、也不是卡片色的第三种颜色。
+   渐变挂 tr + 空白格透明后，四角与空白格取自同一层，颜色严格一致。 */
+tr.seg-am{{background:linear-gradient(180deg,rgba(255,251,235,.80),rgba(255,247,225,.54))}}
+tr.seg-pm{{background:linear-gradient(180deg,rgba(255,247,237,.80),rgba(252,240,229,.54))}}
+tr.seg-nt{{background:linear-gradient(180deg,rgba(238,242,255,.86),rgba(226,235,255,.60))}}
+tr.seg-am td:not(.cls):not(.time),
+tr.seg-pm td:not(.cls):not(.time),
+tr.seg-nt td:not(.cls):not(.time){{background:transparent}}
 /* 放假的空列：淡灰斜纹，一眼看出这天不上课 */
 td.hol{{background-image:repeating-linear-gradient(135deg,
   rgba(100,116,139,.13) 0 6px, transparent 6px 12px) !important;
   background-color:rgba(148,163,184,.10) !important}}
 
 /* 课程块：真圆角卡片 */
-td.cls{{position:relative;z-index:6;cursor:pointer;padding:5px 4px 5px 9px;
+td.cls{{position:relative;z-index:6;cursor:pointer;padding:4px 3px 4px 7px;
   -webkit-tap-highlight-color:transparent;background-clip:padding-box;
   border-radius:14px;background-clip:border-box;
   border-right-color:transparent;border-bottom-color:transparent;
   transition:transform .26s cubic-bezier(.34,1.35,.5,1), filter .26s ease, box-shadow .26s ease;
-  box-shadow:0 2px 8px rgba(20,40,80,.10), inset 0 1px 0 rgba(255,255,255,.55)}}
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.55)}}
 td.cls .cname{{line-height:1.30;font-size:12.5px;word-break:break-all}}
 /* 课程块内只显示「课名」；时间/地点/教师全部收进弹窗。
    隐藏不影响弹窗：JS 用 querySelectorAll('.cinfo') 读取，display:none 的元素照样能取到文本。 */
@@ -567,7 +581,7 @@ td.cls .cinfo{{display:none !important}}
 /* 右下角轻提示：可点开看详情 */
 td.cls::after{{content:'';position:absolute;right:6px;bottom:5px;width:0;height:0;
   border-left:4px solid transparent;border-bottom:4px solid rgba(15,23,42,.20)}}
-td.cls::before{{content:'';position:absolute;left:5px;top:6px;bottom:6px;width:4px;
+td.cls::before{{content:'';position:absolute;left:2px;top:5px;bottom:5px;width:4px;
   background:var(--tc,#3b82f6);border-radius:999px}}
 td.cls:active{{opacity:.82}}
 .cname{{font-weight:800;font-size:12px;color:#0b1220;line-height:1.32;padding-left:6px}}
@@ -587,7 +601,7 @@ td.today.cls{{
   transform:scale(1.05);
   /* 必须高于玻璃框(z-index:5)：卡片浮在玻璃之上，课名才不会被 backdrop-filter 糊掉 */
   z-index:6;
-  box-shadow:0 10px 26px rgba(20,40,80,.26), inset 0 1px 0 rgba(255,255,255,.6);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.6);
   transition:transform .26s cubic-bezier(.34,1.35,.5,1), filter .26s ease, box-shadow .26s ease;
 }}
 td.today.cls .cname{{font-weight:800}}
@@ -823,7 +837,8 @@ body.kbLock{{overflow:hidden}}
       radial-gradient(720px 480px at 46% 104%, rgba(14,165,233,.24), transparent 62%)}}
   h1{{color:#f1f5f9}}
   .sub{{color:#94a3b8}}
-  .kbGlass{{background:rgba(30,41,59,.80);border-color:rgba(148,163,184,.22)}}
+  .kbGlass{{background:linear-gradient(168deg,rgba(30,41,59,.88),rgba(41,55,80,.84) 50%,rgba(34,47,68,.88));
+    border-color:rgba(148,163,184,.22)}}
   .kbCard{{background:rgba(30,41,59,.88);border-color:rgba(148,163,184,.22)}}
   .kbRoom{{box-shadow:0 8px 22px rgba(0,0,0,.34)}}
   .kbRoom .rmLabel{{color:#94a3b8}} .kbRoom .rmSub{{color:#cbd5e1}}
@@ -900,7 +915,12 @@ body::before{{content:"";position:fixed;inset:-20%;z-index:-1;pointer-events:non
 .dockThumb{{background:linear-gradient(135deg,#2563eb,#60a5fa);
   box-shadow:0 6px 18px rgba(37,99,235,.34),inset 0 1px rgba(255,255,255,.58)}}
 .dockItem{{min-height:47px}}
-.kbGlass{{border-radius:24px;background:rgba(255,255,255,.68);
+.kbGlass{{border-radius:24px;
+  background:linear-gradient(168deg,
+    rgba(224,237,255,.88) 0%,
+    rgba(238,233,253,.84) 38%,
+    rgba(226,244,255,.86) 68%,
+    rgba(240,235,252,.84) 100%);
   -webkit-backdrop-filter:blur(18px) saturate(165%);backdrop-filter:blur(18px) saturate(165%);
   border-color:rgba(255,255,255,.82);box-shadow:var(--glass-shadow)}}
 .kbGlass::before{{content:"";position:absolute;inset:0;z-index:0;pointer-events:none;
@@ -908,10 +928,10 @@ body::before{{content:"";position:fixed;inset:-20%;z-index:-1;pointer-events:non
   transition:background .3s ease}}
 .kbGlass table{{position:relative;z-index:1}}
 th{{background:rgba(37,86,153,.88);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}}
-td.cls{{box-shadow:0 4px 12px rgba(20,40,80,.09),inset 0 1px rgba(255,255,255,.58);
+td.cls{{box-shadow:inset 0 1px rgba(255,255,255,.58);
   transition:transform .25s var(--ease-liquid),filter .25s ease,box-shadow .25s ease}}
 td.cls:active{{transform:scale(.985)}}
-td.today.cls{{transform:none;z-index:6;box-shadow:0 10px 24px rgba(20,40,80,.16),inset 0 1px rgba(255,255,255,.68)}}
+td.today.cls{{transform:none;z-index:6;box-shadow:inset 0 1px rgba(255,255,255,.68)}}
 .kbColGlass{{background:linear-gradient(135deg,rgba(255,255,255,.16),rgba(218,234,255,.08) 58%,rgba(255,255,255,.13));
   -webkit-backdrop-filter:blur(7px) saturate(150%);backdrop-filter:blur(7px) saturate(150%);
   box-shadow:0 18px 42px rgba(31,38,135,.18),inset 0 1.5px rgba(255,255,255,.95),inset 0 -1.5px rgba(100,116,139,.25),inset 0 0 20px rgba(186,216,255,.28)}}
@@ -1013,19 +1033,32 @@ td.today.cls{{transform:none;z-index:6;box-shadow:0 10px 24px rgba(20,40,80,.16)
 
 /* 课程卡片本身改成真正的“类玻璃卡片”：
    保留每门课自己的色彩，只把颜色变成半透明镜片。 */
+/* 病根：卡片上的 backdrop-filter 带 saturate(155%) 提色，
+   会把背后的蓝紫背景「提鲜+模糊」后从 36% 半透明卡片里透出来，
+   于是边框一圈和圆角处呈现既不是背景、也不是卡片的第三种颜色。
+   现在关掉卡片的 backdrop-filter，改用「透明缝隙 + 内描边」做玻璃感；
+   圆角外的缝隙露出的是真正的课表背景，颜色自然统一。 */
 .kbGlass td.cls{{
   z-index:6 !important;
-  border:1px solid rgba(255,255,255,.58) !important;
-  border-right-color:rgba(255,255,255,.46) !important;
-  border-bottom-color:rgba(90,120,160,.16) !important;
-  background:rgba(255,255,255,.36) !important;
-  -webkit-backdrop-filter:blur(12px) saturate(155%) !important;
-  backdrop-filter:blur(12px) saturate(155%) !important;
+  border:2.5px solid transparent !important;
+  background-clip:padding-box !important;
+  -webkit-background-clip:padding-box !important;
+  background:#fbfcff !important;
+  background:
+    linear-gradient(160deg,
+      rgba(255,255,255,.95) 0%,
+      rgba(255,255,255,.82) 55%,
+      rgba(255,255,255,.92) 100%),
+    linear-gradient(160deg,
+      color-mix(in srgb, var(--tc,#3b82f6) 9%, #ffffff),
+      color-mix(in srgb, var(--tc,#3b82f6) 17%, #ffffff)) !important;
+  -webkit-backdrop-filter:none !important;
+  backdrop-filter:none !important;
+  /* 外投影会在圆角外糊出一圈深蓝灰，叠在背景上正是「既不是背景也不是卡片」的第三色。
+     层次改由「内描边 + 顶部高光」承担，圆角外保持纯净背景。 */
   box-shadow:
-    0 7px 18px rgba(30,55,95,.13),
-    inset 0 1.5px 0 rgba(255,255,255,.82),
-    inset 0 -1px 0 rgba(110,140,180,.14),
-    inset 0 0 12px rgba(255,255,255,.14) !important;
+    inset 0 0 0 1px rgba(255,255,255,.72),
+    inset 0 1.5px 0 rgba(255,255,255,.90) !important;
   overflow:hidden;
 }}
 
@@ -1077,12 +1110,13 @@ td.today.cls{{transform:none;z-index:6;box-shadow:0 10px 24px rgba(20,40,80,.16)
       0 7px 20px rgba(55,105,190,.08),
       inset 0 1px rgba(255,255,255,.90);
   }}
+  /* 移动端不再回退到「半透明 + saturate 提鲜」：那会让圆角缝隙透出被提色的背景，
+     造成四角异色。此处保持与桌面一致的不透明实色。 */
   .kbGlass td.cls{{
-    -webkit-backdrop-filter:blur(7px) saturate(145%) !important;
-    backdrop-filter:blur(7px) saturate(145%) !important;
-    background:rgba(255,255,255,.30) !important;
+    -webkit-backdrop-filter:none !important;
+    backdrop-filter:none !important;
     box-shadow:
-      0 5px 13px rgba(30,55,95,.11),
+      inset 0 0 0 1px rgba(255,255,255,.70),
       inset 0 1px rgba(255,255,255,.78) !important;
   }}
 }}
@@ -1169,7 +1203,7 @@ td.today.cls{{transform:none;z-index:6;box-shadow:0 10px 24px rgba(20,40,80,.16)
 /* ① 玻璃框继续下沉(z-index:0)，绝不覆盖课程卡片。
       白色填充压薄并做成纵向渐变（上缘实→中段最透→下缘回升），
       质感改由 blur(26px) + 边缘渐晕 + 镜片描边撑起来：
-      框像一片有厚度的玻璃，而不是一块白板。
+      背景改为轻微渐变后，白玻璃框+模糊即可显现，无需蓝色。
       因为框在表格之下，模糊只作用于空白格，课程卡片完全不受影响。 */
 .kbColGlass{{
   z-index:0 !important;
@@ -1177,23 +1211,23 @@ td.today.cls{{transform:none;z-index:6;box-shadow:0 10px 24px rgba(20,40,80,.16)
      白色峰值压到 .34，通透感交给 blur(26px) 去撑。 */
   background:
     linear-gradient(168deg,
-      rgba(96,165,250,.62) 0%,
-      rgba(125,185,252,.46) 20%,
-      rgba(96,165,250,.34) 46%,
-      rgba(130,190,253,.48) 74%,
-      rgba(96,165,250,.58) 100%),
+      rgba(255,255,255,.72) 0%,
+      rgba(255,255,255,.52) 20%,
+      rgba(255,255,255,.38) 46%,
+      rgba(255,255,255,.56) 74%,
+      rgba(255,255,255,.68) 100%),
     radial-gradient(120% 68% at 50% 8%,
-      rgba(190,220,255,.55) 0%, rgba(255,255,255,0) 62%),
+      rgba(255,255,255,.78) 0%, rgba(255,255,255,0) 62%),
     radial-gradient(120% 120% at 50% 50%,
-      rgba(96,165,250,0) 52%, rgba(59,130,246,.30) 100%) !important;
+      rgba(255,255,255,0) 50%, rgba(255,255,255,.42) 100%) !important;
   -webkit-backdrop-filter:blur(30px) saturate(200%) brightness(1.10) !important;
   backdrop-filter:blur(30px) saturate(200%) brightness(1.10) !important;
   border:2px solid rgba(255,255,255,.92) !important;
-  box-shadow:0 18px 44px rgba(37,99,235,.34),
-             0 4px 12px rgba(15,23,42,.12),
-             inset 0 2px 1px rgba(255,255,255,.95),
-             inset 0 -2px 1px rgba(37,99,235,.32),
-             inset 0 0 26px rgba(147,197,253,.55) !important;
+  box-shadow:0 18px 44px rgba(31,38,135,.30),
+             0 4px 12px rgba(15,23,42,.10),
+             inset 0 2px 1px rgba(255,255,255,.98),
+             inset 0 -2px 1px rgba(100,116,139,.28),
+             inset 0 0 26px rgba(255,255,255,.52) !important;
 }}
 /* 曲面镜面高光 + 底部虹彩折射（玻璃厚度感），沿用液态玻璃语言 */
 .kbColGlass::before{{
@@ -1221,12 +1255,27 @@ td.today.cls{{transform:none;z-index:6;box-shadow:0 10px 24px rgba(20,40,80,.16)
 /* ③ 课程卡片置顶后再抬高不透明度，彻底遮住下沉的玻璃框。
    玻璃动效（镜面高光、圆角、投影、backdrop 磨砂）一字不改。 */
 .kbGlass td.cls{{
-  background:rgba(255,255,255,.88) !important;
-  -webkit-backdrop-filter:blur(12px) saturate(160%) !important;
-  backdrop-filter:blur(12px) saturate(160%) !important;
+  background:
+    linear-gradient(160deg,
+      rgba(255,255,255,.95) 0%,
+      rgba(255,255,255,.82) 55%,
+      rgba(255,255,255,.92) 100%),
+    linear-gradient(160deg,
+      color-mix(in srgb, var(--tc,#3b82f6) 9%, #ffffff),
+      color-mix(in srgb, var(--tc,#3b82f6) 17%, #ffffff)) !important;
+  -webkit-backdrop-filter:none !important;
+  backdrop-filter:none !important;
 }}
 @media(max-width:600px){{
-  .kbGlass td.cls{{background:rgba(255,255,255,.86) !important}}
+  .kbGlass td.cls{{
+    background:
+      linear-gradient(160deg,
+        rgba(255,255,255,.94) 0%,
+        rgba(255,255,255,.80) 55%,
+        rgba(255,255,255,.91) 100%),
+      linear-gradient(160deg,
+        color-mix(in srgb, var(--tc,#3b82f6) 11%, #ffffff),
+        color-mix(in srgb, var(--tc,#3b82f6) 19%, #ffffff)) !important}}
 }}
 /* 选中后课程卡片微微放大（玻璃质感与框框动效均不变） */
 .kbGlass td.today.cls{{transform:scale(1.03) !important;z-index:7 !important;
@@ -1256,9 +1305,398 @@ td.today.cls{{transform:none;z-index:6;box-shadow:0 10px 24px rgba(20,40,80,.16)
   .kbBody{{max-height:calc(100vh - 110px)}}
 }}
 
+/* ============ 课程卡片四角异色：统一锁死（放最后，优先级最高） ============
+   四角「既不像背景、也不像卡片」的第三色，来源是外投影：
+   box-shadow 的 0 6px 15px rgba(30,55,95,.12) 会沿圆角向外糊出一圈深蓝灰，
+   叠在课表背景上就成了第三种颜色；圆角处露出的面积最大，所以四个角最明显。
+   同理 saturate() 提鲜 + 半透明背景也会把背后的颜色改掉后透出来。
+   这里统一封死：不透明实色 + 无外投影 + 无 backdrop，
+   层次改由「内描边 + 顶部高光」承担，圆角外只剩纯背景。 */
+.kbGlass td.cls,
+.kbGlass td.cls.today,
+.kbGlass td.today.cls,
+.kbGlass td.cls.now{{
+  -webkit-backdrop-filter:none !important;
+  backdrop-filter:none !important;
+  box-shadow:
+    inset 0 0 0 1px rgba(15,35,70,.07),
+    inset 0 1.5px 0 rgba(255,255,255,.92) !important;
+}}
+
+/* ============ 课程卡片四角异色：真正的病根 ============
+   病根不是 box-shadow，而是这两行：
+     border:2.5px solid transparent   ← 一圈 2.5px 全透明边框
+     background-clip:padding-box      ← 背景只画到 padding box，不覆盖边框区
+   两者叠加 → 卡片四周留出一圈 2.5px 的透明环带，透出底下 .kbGlass 的
+   蓝紫渐变（还被 saturate(165%) 提过鲜），于是出现「既不是背景也不是卡片」的第三色；
+   圆角处这圈环带露出的面积最大，所以四个角最明显。
+   修法：边框归零 + 背景铺满 border-box，让圆角直接由 border-radius 裁剪，
+   四周不再有任何透明环带，四角颜色与卡片主体完全一致。 */
+.kbGlass td.cls,
+.kbGlass td.cls.today,
+.kbGlass td.today.cls,
+.kbGlass td.cls.now{{
+  border:0 !important;
+  border-width:0 !important;
+  border-color:transparent !important;
+  background-clip:border-box !important;
+  -webkit-background-clip:border-box !important;
+  -moz-background-clip:border-box !important;
+  -webkit-backdrop-filter:none !important;
+  backdrop-filter:none !important;
+  background:
+    linear-gradient(160deg,
+      rgba(255,255,255,.97) 0%,
+      rgba(255,255,255,.93) 55%,
+      rgba(255,255,255,.96) 100%),
+    linear-gradient(160deg,
+      color-mix(in srgb, var(--tc,#3b82f6) 9%, #ffffff),
+      color-mix(in srgb, var(--tc,#3b82f6) 17%, #ffffff)) !important;
+  box-shadow:
+    inset 0 0 0 1px rgba(15,35,70,.06),
+    inset 0 1.5px 0 rgba(255,255,255,.92) !important;
+}}
+@media(max-width:600px){{
+  .kbGlass td.cls,
+  .kbGlass td.cls.today,
+  .kbGlass td.today.cls,
+  .kbGlass td.cls.now{{
+    border:0 !important;
+    border-width:0 !important;
+    background-clip:border-box !important;
+    -webkit-background-clip:border-box !important;
+    -webkit-backdrop-filter:none !important;
+    backdrop-filter:none !important;
+    background:
+      linear-gradient(160deg,
+        rgba(255,255,255,.97) 0%,
+        rgba(255,255,255,.93) 55%,
+        rgba(255,255,255,.96) 100%),
+      linear-gradient(160deg,
+        color-mix(in srgb, var(--tc,#3b82f6) 11%, #ffffff),
+        color-mix(in srgb, var(--tc,#3b82f6) 19%, #ffffff)) !important;
+    box-shadow:
+      inset 0 0 0 1px rgba(15,35,70,.06),
+      inset 0 1.5px 0 rgba(255,255,255,.92) !important;
+  }}
+}}
+
+/* ================= V6：课程卡片精修 =================
+   目标：卡片自身负责圆角和底色；灰色描边改为“内缩一圈”，
+   不再使用表格单元格边框/透明外环，避免四角露出第三种颜色。
+*/
+.kbGlass td.cls,
+.kbGlass td.cls.today,
+.kbGlass td.today.cls,
+.kbGlass td.cls.now{{
+  position:relative !important;
+  box-sizing:border-box !important;
+  border:0 !important;
+  border-width:0 !important;
+  border-color:transparent !important;
+  border-radius:16px !important;
+  background-clip:border-box !important;
+  -webkit-background-clip:border-box !important;
+  -webkit-backdrop-filter:none !important;
+  backdrop-filter:none !important;
+  overflow:hidden !important;
+  /* 不在卡片外产生阴影，圆角外始终只显示课表底层颜色 */
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.92) !important;
+}}
+
+/* 与卡片边缘留约 3px 间隙的灰色内圈 */
+.kbGlass td.cls::after,
+.kbGlass td.cls.today::after,
+.kbGlass td.today.cls::after{{
+  content:"" !important;
+  position:absolute !important;
+  inset:3px !important;
+  width:auto !important;
+  height:auto !important;
+  box-sizing:border-box !important;
+  border:1.35px solid rgba(71,85,105,.36) !important;
+  border-radius:13px !important;
+  background:transparent !important;
+  transform:none !important;
+  opacity:1 !important;
+  pointer-events:none !important;
+  z-index:3 !important;
+}}
+
+/* 左侧色条：独立于灰色内圈，两端始终圆润 */
+.kbGlass td.cls::before,
+.kbGlass td.cls.today::before,
+.kbGlass td.today.cls::before{{
+  content:"" !important;
+  position:absolute !important;
+  left:6px !important;
+  top:9px !important;
+  bottom:9px !important;
+  width:4px !important;
+  border-radius:999px !important;
+  background:var(--tc,#3b82f6) !important;
+  z-index:4 !important;
+}}
+
+.kbGlass td.cls .cname{{
+  position:relative;
+  z-index:5;
+  padding-left:10px !important;
+  padding-right:7px !important;
+}}
+
+/* 正在上课：保留红色提示，但不破坏新的灰色内圈结构 */
+.kbGlass td.cls.now::after{{
+  content:"" !important;
+  position:absolute !important;
+  inset:3px !important;
+  width:auto !important;
+  height:auto !important;
+  border:2px solid #f43f5e !important;
+  border-radius:13px !important;
+  background:transparent !important;
+  transform:none !important;
+  pointer-events:none !important;
+  z-index:6 !important;
+  animation:kbPulse 1.6s ease-in-out infinite;
+}}
+
+/* 手机端保持同一套几何关系，不再让四角出现异色 */
+@media(max-width:600px){{
+  .kbGlass td.cls,
+  .kbGlass td.cls.today,
+  .kbGlass td.today.cls,
+  .kbGlass td.cls.now{{
+    border:0 !important;
+    border-radius:16px !important;
+    background-clip:border-box !important;
+    -webkit-background-clip:border-box !important;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.92) !important;
+  }}
+  .kbGlass td.cls::after,
+  .kbGlass td.cls.today::after,
+  .kbGlass td.today.cls::after{{
+    inset:3px !important;
+    border-radius:13px !important;
+  }}
+  .kbGlass td.cls::before,
+  .kbGlass td.cls.today::before,
+  .kbGlass td.today.cls::before{{
+    left:6px !important;
+    top:9px !important;
+    bottom:9px !important;
+    width:4px !important;
+    border-radius:999px !important;
+  }}
+}}
+
+
+/* ===== V7：统一背景 + 紧凑课程卡片 + 周次快捷玻璃菜单 ===== */
+body{{
+  background-color:#eaf0f8 !important;
+  background-image:
+    radial-gradient(620px 420px at 8% 0%,rgba(99,102,241,.18),transparent 66%),
+    radial-gradient(560px 400px at 96% 8%,rgba(236,72,153,.13),transparent 64%),
+    radial-gradient(680px 460px at 48% 100%,rgba(14,165,233,.17),transparent 68%) !important;
+}}
+/* 顶部、课表、周次选择共用同一张“底”，不再让课表区域像另一块背景 */
+.wkbarWrap{{position:relative;display:flex;align-items:center;gap:8px;margin:2px 0 10px;z-index:80}}
+.wkbarWrap .wkbar{{flex:1;min-width:0;margin:0}}
+.wkQuick{{
+  position:relative;flex:0 0 46px;width:46px;height:46px;border:1px solid rgba(255,255,255,.86);
+  border-radius:16px;cursor:pointer;-webkit-tap-highlight-color:transparent;overflow:hidden;
+  background:linear-gradient(145deg,rgba(255,255,255,.72),rgba(225,235,250,.48));
+  -webkit-backdrop-filter:blur(22px) saturate(175%);backdrop-filter:blur(22px) saturate(175%);
+  box-shadow:0 10px 26px rgba(31,38,135,.14),inset 0 1px rgba(255,255,255,.95),inset 0 -1px rgba(148,163,184,.20);
+  transition:transform .28s var(--ease-liquid),box-shadow .28s ease,background .28s ease;
+}}
+.wkQuick::before{{content:"";position:absolute;inset:-80% -40%;background:linear-gradient(110deg,transparent 38%,rgba(255,255,255,.60) 50%,transparent 62%);transform:translateX(-70%);transition:transform .65s var(--ease-liquid);pointer-events:none}}
+.wkQuick:active{{transform:scale(.93)}}
+.wkQuick.open{{box-shadow:0 14px 34px rgba(37,99,235,.24),inset 0 1px rgba(255,255,255,.98),inset 0 0 18px rgba(186,216,255,.34);background:linear-gradient(145deg,rgba(255,255,255,.80),rgba(214,230,255,.60))}}
+.wkQuick.open::before{{transform:translateX(70%)}}
+.wkQuick span{{position:absolute;left:50%;top:50%;width:10px;height:10px;border-right:2.5px solid #2563eb;border-bottom:2.5px solid #2563eb;transform:translate(-50%,-62%) rotate(45deg);transition:transform .34s var(--ease-liquid)}}
+.wkQuick.open span{{transform:translate(-50%,-35%) rotate(225deg)}}
+.wkQuickPanel{{
+  position:absolute;right:0;top:calc(100% + 9px);width:min(196px,calc(100vw - 24px));padding:9px;
+  border:1px solid rgba(255,255,255,.88);border-radius:17px;opacity:0;visibility:hidden;pointer-events:none;
+  transform:translateY(-9px) scale(.94);transform-origin:90% 0;
+  background:linear-gradient(145deg,rgba(255,255,255,.78),rgba(225,237,252,.58));
+  -webkit-backdrop-filter:blur(26px) saturate(185%);backdrop-filter:blur(26px) saturate(185%);
+  box-shadow:0 20px 48px rgba(31,38,135,.20),0 4px 12px rgba(15,23,42,.08),inset 0 1px rgba(255,255,255,.95),inset 0 -1px rgba(148,163,184,.18);
+  transition:opacity .24s ease,transform .34s var(--ease-liquid),visibility .24s;
+}}
+.wkQuickPanel.show{{opacity:1;visibility:visible;pointer-events:auto;transform:translateY(0) scale(1);animation:wkQuickGlass .46s var(--ease-liquid)}}
+@keyframes wkQuickGlass{{0%{{filter:brightness(1);box-shadow:0 10px 26px rgba(31,38,135,.10),inset 0 0 0 rgba(255,255,255,0)}}45%{{filter:brightness(1.08);box-shadow:0 22px 54px rgba(37,99,235,.25),inset 0 0 24px rgba(186,216,255,.48)}}100%{{filter:brightness(1)}}}}
+.wkQuickTitle{{font-size:11px;font-weight:800;color:#64748b;text-align:center;margin:0 0 9px}}
+.wkQuickGrid{{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}}
+.wkQuickOpt{{border:1px solid rgba(255,255,255,.60);border-radius:10px;padding:0;height:29px;display:flex;align-items:center;justify-content:center;font:800 13px/1 -apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei',sans-serif;color:#334155;background:rgba(255,255,255,.44);cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform .25s var(--ease-liquid),background .22s ease,color .22s ease,box-shadow .22s ease}}
+.wkQuickOpt small{{display:block;font-size:9px;opacity:.58;margin-top:3px;font-weight:700}}
+.wkQuickOpt.on{{color:#fff;background:linear-gradient(135deg,#2563eb,#60a5fa);box-shadow:0 7px 16px rgba(37,99,235,.26),inset 0 1px rgba(255,255,255,.55)}}
+.wkQuickOpt:active{{transform:scale(.90)}}
+/* 课表外层只保留一层与页面一致的半透明玻璃，不再单独铺蓝紫“面板色” */
+.kbGlass{{background:rgba(255,255,255,.20) !important;border-color:rgba(255,255,255,.62) !important;box-shadow:0 14px 34px rgba(31,38,135,.10),inset 0 1px rgba(255,255,255,.72) !important;backdrop-filter:blur(18px) saturate(150%) !important;-webkit-backdrop-filter:blur(18px) saturate(150%) !important}}
+tr.seg-am{{background:linear-gradient(180deg,rgba(255,251,235,.34),rgba(255,247,225,.18)) !important}}
+tr.seg-pm{{background:linear-gradient(180deg,rgba(255,247,237,.34),rgba(252,240,229,.18)) !important}}
+tr.seg-nt{{background:linear-gradient(180deg,rgba(238,242,255,.40),rgba(226,235,255,.20)) !important}}
+/* 课程卡片：只修正“比例”，不改变 V7 其它界面。
+   取消会撑高 rowspan 的上下 padding；卡片视觉本体改为在单元格内收缩，
+   让它保持参考图那种“短、厚、圆”的比例。 */
+.kbGlass td.cls,
+.kbGlass td.cls.today,
+.kbGlass td.today.cls,
+.kbGlass td.cls.now{{
+  padding:0 !important;
+  border:0 !important;
+  border-radius:16px !important;
+  background:linear-gradient(160deg,rgba(255,255,255,.97),rgba(255,255,255,.91) 56%,rgba(255,255,255,.95)) !important;
+  background-clip:border-box !important;
+  box-shadow:inset 0 1px rgba(255,255,255,.94) !important;
+  transform:none !important;
+  filter:none !important;
+  vertical-align:middle !important;
+}}
+/* 卡片本体：与网格上下左右留出很小的呼吸位，明显避免“细长贴边”。 */
+.kbGlass td.cls::after,
+.kbGlass td.cls.today::after,
+.kbGlass td.today.cls::after{{
+  content:"" !important;
+  position:absolute !important;
+  inset:5px 3px !important;
+  box-sizing:border-box !important;
+  border:1.2px solid rgba(71,85,105,.30) !important;
+  border-radius:13px !important;
+  background:transparent !important;
+  box-shadow:none !important;
+  z-index:1 !important;
+}}
+/* 色条独立放在卡片里面，两端保持圆润。 */
+.kbGlass td.cls::before,
+.kbGlass td.cls.today::before,
+.kbGlass td.today.cls::before{{
+  left:9px !important;
+  top:12px !important;
+  bottom:12px !important;
+  width:4px !important;
+  border-radius:999px !important;
+  z-index:4 !important;
+}}
+.kbGlass td.cls .cname{{padding-left:13px !important;padding-right:8px !important;position:relative;z-index:5}}
+.kbGlass td.cls:active{{transform:scale(.985) !important}}
+.kbGlass td.cls.now::after{{inset:6px 3px !important;border-radius:14px !important;border:2px solid #f43f5e !important}}
+/* 周次切换：允许整张课表左右滑动切周，但不影响周次条自身的横向滚动 */
+.pane{{touch-action:pan-y}}
+@media(max-width:600px){{
+  body{{padding:10px !important}}
+  .wkbarWrap{{gap:7px}}
+  .wkQuick{{flex-basis:42px;width:42px;height:42px;border-radius:15px}}
+  .wkQuickPanel{{right:0;width:min(190px,calc(100vw - 20px));}}
+  .wkQuickGrid{{grid-template-columns:repeat(5,1fr)}}
+  .kbGlass td.cls,
+  .kbGlass td.cls.today,
+  .kbGlass td.today.cls,
+  .kbGlass td.cls.now{{padding:0 !important;border-radius:15px !important;background:linear-gradient(160deg,rgba(255,255,255,.97),rgba(255,255,255,.91) 56%,rgba(255,255,255,.95)) !important;background-clip:border-box !important}}
+  .kbGlass td.cls::after,.kbGlass td.cls.today::after,.kbGlass td.today.cls::after{{inset:6px 3px !important;border-radius:13px !important}}
+  .kbGlass td.cls::before,.kbGlass td.cls.today::before,.kbGlass td.today.cls::before{{left:9px !important;top:12px !important;bottom:12px !important;width:4px !important}}
+}}
+
+
+/* ===== V9：内容自适应 + 全界面渐变 + 当天液态玻璃恢复 ===== */
+/* 页面所有“容器背景”统一使用同一套柔和渐变语言；课程卡片仍保持纯净实体色。 */
+body{{
+  background-color:#e9eef9 !important;
+  background-image:
+    linear-gradient(145deg,
+      #dfe8ff 0%,
+      #eee7fb 27%,
+      #f8e8f5 48%,
+      #e4f2ff 72%,
+      #d9edfb 100%) !important;
+  background-attachment:fixed !important;
+}}
+body::before{{
+  background:
+    radial-gradient(430px 300px at 8% 8%,rgba(92,132,245,.24),transparent 72%),
+    radial-gradient(390px 300px at 92% 16%,rgba(214,126,219,.20),transparent 72%),
+    radial-gradient(520px 360px at 50% 100%,rgba(72,177,235,.20),transparent 72%) !important;
+  filter:blur(14px) !important;
+}}
+.hero,
+.wkbar,
+.legend span,
+.dock,
+.kbGlass,
+.wkQuick,
+.wkQuickPanel{{
+  background:linear-gradient(135deg,
+    rgba(255,255,255,.58) 0%,
+    rgba(229,237,255,.43) 32%,
+    rgba(244,225,248,.38) 56%,
+    rgba(218,239,255,.46) 100%) !important;
+}}
+.hero,.wkbar,.dock,.kbGlass,.wkQuick,.wkQuickPanel{{
+  -webkit-backdrop-filter:blur(22px) saturate(165%) !important;
+  backdrop-filter:blur(22px) saturate(165%) !important;
+}}
+.legend span{{-webkit-backdrop-filter:blur(14px) saturate(160%) !important;backdrop-filter:blur(14px) saturate(160%) !important}}
+/* 课表内部也统一为同一张渐变底，上午/下午/晚上只保留极淡的层次。 */
+tr.seg-am{{background:linear-gradient(180deg,rgba(255,249,226,.28),rgba(255,246,224,.12)) !important}}
+tr.seg-pm{{background:linear-gradient(180deg,rgba(255,236,220,.25),rgba(255,240,228,.11)) !important}}
+tr.seg-nt{{background:linear-gradient(180deg,rgba(226,235,255,.30),rgba(220,234,255,.12)) !important}}
+.time{{background:linear-gradient(180deg,rgba(255,255,255,.30),rgba(235,242,255,.18)) !important}}
+.time.s-am{{background:linear-gradient(180deg,rgba(255,248,225,.40),rgba(255,244,216,.18)) !important}}
+.time.s-pm{{background:linear-gradient(180deg,rgba(255,239,224,.38),rgba(255,232,216,.16)) !important}}
+.time.s-nt{{background:linear-gradient(180deg,rgba(232,237,255,.42),rgba(222,232,255,.18)) !important}}
+/* 今天选中列：不再是纯白，恢复蓝紫折射的液态玻璃。课程卡片仍在其上方，不会被染色。 */
+.kbColGlass{{
+  z-index:0 !important;
+  background:
+    linear-gradient(150deg,
+      rgba(255,255,255,.42) 0%,
+      rgba(199,220,255,.24) 28%,
+      rgba(214,197,247,.18) 53%,
+      rgba(176,220,255,.25) 78%,
+      rgba(255,255,255,.34) 100%) !important;
+  -webkit-backdrop-filter:blur(24px) saturate(185%) brightness(1.04) !important;
+  backdrop-filter:blur(24px) saturate(185%) brightness(1.04) !important;
+  border:1.5px solid rgba(255,255,255,.86) !important;
+  box-shadow:
+    0 16px 38px rgba(49,74,145,.20),
+    inset 0 1.5px 0 rgba(255,255,255,.96),
+    inset 0 -1.5px 0 rgba(125,151,196,.20),
+    inset 0 0 22px rgba(177,207,255,.30) !important;
+}}
+.kbColGlass::before{{
+  background:radial-gradient(ellipse at 28% 24%,rgba(255,255,255,.94) 0%,rgba(255,255,255,.34) 40%,rgba(255,255,255,0) 72%) !important;
+}}
+.kbColGlass::after{{
+  background:
+    radial-gradient(ellipse at 80% 112%,rgba(167,205,255,.46) 0%,rgba(167,205,255,0) 60%),
+    radial-gradient(ellipse at 18% 55%,rgba(220,197,250,.18) 0%,rgba(220,197,250,0) 58%),
+    linear-gradient(118deg,rgba(255,255,255,0) 48%,rgba(196,220,255,.22) 72%,rgba(255,255,255,.10) 100%) !important;
+}}
+/* 课程卡片继续保持实体白色/原课程色，不给卡片套页面渐变。 */
+.kbGlass td.cls,
+.kbGlass td.cls.today,
+.kbGlass td.today.cls,
+.kbGlass td.cls.now{{
+  overflow:hidden !important;
+  background:linear-gradient(160deg,rgba(255,255,255,.97),rgba(255,255,255,.93) 56%,rgba(255,255,255,.96)) !important;
+}}
+/* 内容根据课程名称自动调整字号：短名称保持参考图的饱满比例，长名称自动缩小，绝不把字挤出卡片。 */
+.kbGlass td.cls .cname{{
+  display:block !important;
+  width:100% !important;
+  padding-top:1px !important;
+  padding-bottom:1px !important;
+  line-height:1.22 !important;
+  overflow-wrap:anywhere !important;
+  word-break:break-all !important;
+}}
+
+
 </style></head><body>
 
-<div class="wkbar" id="wkBar"><div class="wkTrack" id="wkTrack"><div class="wkThumb" id="wkThumb"></div>{wk_items}</div></div>
+<div class="wkbarWrap" id="wkBarWrap"><div class="wkbar" id="wkBar"><div class="wkTrack" id="wkTrack"><div class="wkThumb" id="wkThumb"></div>{wk_items}</div></div><button class="wkQuick" id="wkQuick" type="button" aria-label="快捷切换周数" aria-expanded="false"><span></span></button><div class="wkQuickPanel" id="wkQuickPanel" aria-hidden="true"><div class="wkQuickGrid" id="wkQuickGrid"></div></div></div>
 <div class="legend">
   <span><i style="background:#f59e0b"></i>上午 1-4节</span>
   <span><i style="background:#f97316"></i>下午 5-8节</span>
@@ -1291,6 +1729,7 @@ function showWeek(n) {{
   if (lb) lb.textContent = '第 ' + n + ' 周';
   kbDockDates(n);
   kbMarkNow();
+  if (window.kbQuickSync) window.kbQuickSync();
 }}
 /* 玻璃滑块：跟随选中项做弹性位移 */
 function kbMoveThumb(el, doScroll) {{
@@ -1779,6 +2218,87 @@ setInterval(kbMarkNow, 60000);
 (function(){{
   var d=new Date(), el=document.getElementById('heroDate');
   if(el) el.textContent=(d.getMonth()+1)+'月'+d.getDate()+'日 · '+['周日','周一','周二','周三','周四','周五','周六'][d.getDay()];
+}})();
+
+
+
+/* ===== V7：周次快捷菜单 + 课表左右滑动切周 ===== */
+(function(){{
+  var q=document.getElementById('wkQuick'), panel=document.getElementById('wkQuickPanel'), grid=document.getElementById('wkQuickGrid');
+  if(!q||!panel||!grid) return;
+  for(var n=1;n<=20;n++){{
+    var b=document.createElement('button'); b.type='button'; b.className='wkQuickOpt'; b.setAttribute('data-wk',String(n));
+    b.innerHTML=String(n);
+    b.addEventListener('click',function(e){{
+      e.stopPropagation(); var n=parseInt(this.getAttribute('data-wk'),10)||1;
+      pick(null,n); closeQuick();
+    }});
+    grid.appendChild(b);
+  }}
+  function sync(){{
+    var bs=grid.querySelectorAll('.wkQuickOpt');
+    for(var i=0;i<bs.length;i++) bs[i].classList.toggle('on',parseInt(bs[i].getAttribute('data-wk'),10)===KB_WK);
+  }}
+  function openQuick(){{sync();q.classList.add('open');panel.classList.add('show');q.setAttribute('aria-expanded','true');panel.setAttribute('aria-hidden','false');}}
+  function closeQuick(){{q.classList.remove('open');panel.classList.remove('show');q.setAttribute('aria-expanded','false');panel.setAttribute('aria-hidden','true');}}
+  q.addEventListener('click',function(e){{e.stopPropagation();panel.classList.contains('show')?closeQuick():openQuick();}});
+  panel.addEventListener('click',function(e){{e.stopPropagation();}});
+  document.addEventListener('click',closeQuick);
+  window.kbQuickSync=sync;
+}})();
+
+/* 课表左右轻扫切换周数；纵向滚动/课程点击不会误触发 */
+(function(){{
+  var startX=0,startY=0,startT=0,moving=false;
+  function targetPane(){{return document.getElementById('panes');}}
+  var root=targetPane(); if(!root) return;
+  root.addEventListener('touchstart',function(e){{
+    if(!e.touches||!e.touches[0]) return;
+    startX=e.touches[0].clientX; startY=e.touches[0].clientY; startT=Date.now(); moving=true;
+  }},{{passive:true}});
+  root.addEventListener('touchend',function(e){{
+    if(!moving||!e.changedTouches||!e.changedTouches[0]) return; moving=false;
+    var dx=e.changedTouches[0].clientX-startX, dy=e.changedTouches[0].clientY-startY, dt=Date.now()-startT;
+    if(dt>700||Math.abs(dx)<55||Math.abs(dx)<Math.abs(dy)*1.35) return;
+    var next=KB_WK+(dx<0?1:-1); if(next<1||next>20) return;
+    showWeek(next);
+    var bar=document.getElementById('wkBar'); if(bar){{bar.classList.remove('glow');void bar.offsetWidth;bar.classList.add('glow');}}
+    if(window.kbQuickSync) window.kbQuickSync();
+  }},{{passive:true}});
+}})();
+
+
+/* ===== V9：课程名称自适应排版 ===== */
+(function(){{
+  function fitCourseText(){{
+    var cards=document.querySelectorAll('.kbGlass td.cls');
+    for(var i=0;i<cards.length;i++){{
+      var card=cards[i], name=card.querySelector('.cname');
+      if(!name) continue;
+      var text=(name.textContent||'').replace(/\s+/g,'').trim();
+      var len=text.length;
+      var fs = len<=8 ? 13 : len<=12 ? 12.5 : len<=16 ? 12 : len<=22 ? 11.5 : len<=30 ? 11 : 10.5;
+      name.style.fontSize=fs+'px';
+      name.style.lineHeight=(len>=23?'1.16':'1.22');
+      name.style.paddingLeft='13px';
+      name.style.paddingRight='8px';
+      /* 如果实际高度仍不够，就逐级缩小；不会裁掉文字。 */
+      var guard=0;
+      while(guard<8 && name.scrollHeight>card.clientHeight-8 && fs>9.5){{
+        fs-=.35;
+        name.style.fontSize=fs.toFixed(2)+'px';
+        guard++;
+      }}
+    }}
+  }}
+  window.kbFitCourseText=fitCourseText;
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',fitCourseText);
+  else fitCourseText();
+  window.addEventListener('resize',function(){{setTimeout(fitCourseText,80)}});
+  if(window.MutationObserver){{
+    var panes=document.getElementById('panes');
+    if(panes){{new MutationObserver(function(){{setTimeout(fitCourseText,20)}}).observe(panes,{{subtree:true,attributes:true,attributeFilter:['style','class']}});}}
+  }}
 }})();
 
 </script>
