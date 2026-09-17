@@ -285,8 +285,11 @@ def table_html(parsed, week_monday=None):
 
 def render_page(weeks, semester, current_week):
     """生成整页：自定义下拉弹窗 + 每周一个隐藏表格面板 + 切换 JS"""
-    opts = "".join(f'<button class="opt{" on" if w == current_week else ""}" data-wk="{w}" onclick="pick(event,{w})">{w}</button>'
-                   for w in range(1, MAX_WEEK + 1))
+    # V12：周次改为「横向长条轨道」——每个周次一个 wki 按钮，可左右滑动、可点击选中
+    wk_items = "".join(
+        '<button class="wki{" on" if w == current_week else ""}" data-wk="{w}" onclick="pick(event,{w})"><b>{w}</b><i>周</i></button>'
+        .replace('{w}', str(w)).replace('{" on" if w == current_week else ""}', ' on' if w == current_week else '')
+        for w in range(1, MAX_WEEK + 1))
     # 依据"今天"与当前周次反推第 1 周周一，进而算出每一周的日期
     _today = date.today()
     _this_mon = _today - timedelta(days=_today.weekday())
@@ -340,6 +343,7 @@ def render_page(weeks, semester, current_week):
                  '<div class="dockThumb" id="dockThumb"></div>'
                  + "".join(_dock_items) + "</div>")
     now = bj_now("%Y-%m-%d %H:%M")   # 必须北京时间：曾因系统 TZ=UTC 写成凌晨时间
+    panes_html = "".join(panes)
     return f"""<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1"><title>我的课表</title><style>
 *{{margin:0;padding:0;box-sizing:border-box}}
@@ -550,7 +554,7 @@ td.hol{{background-image:repeating-linear-gradient(135deg,
   background-color:rgba(148,163,184,.10) !important}}
 
 /* 课程块：真圆角卡片 */
-td.cls{{position:relative;cursor:pointer;padding:5px 4px 5px 9px;
+td.cls{{position:relative;z-index:6;cursor:pointer;padding:5px 4px 5px 9px;
   -webkit-tap-highlight-color:transparent;background-clip:padding-box;
   border-radius:14px;background-clip:border-box;
   border-right-color:transparent;border-bottom-color:transparent;
@@ -666,29 +670,118 @@ td.cls.now::after{{content:'';position:absolute;inset:2px;border-radius:12px;
 .pane{{display:none}}
 
 /* 弹窗：更圆润 */
-.kbMask{{position:absolute;left:0;right:0;background:rgba(15,25,45,.45);z-index:200;
-  display:none;align-items:center;justify-content:center;padding:20px;
-  -webkit-backdrop-filter:blur(5px);backdrop-filter:blur(5px)}}
-.kbMask.show{{display:flex}}
-.kbCard{{border-radius:26px;width:100%;max-width:340px;overflow:hidden;
-  animation:kbPop .22s cubic-bezier(.2,.9,.3,1.2);
-  background:rgba(255,255,255,.88);
-  -webkit-backdrop-filter:blur(26px) saturate(180%);backdrop-filter:blur(26px) saturate(180%);
-  border:1px solid rgba(255,255,255,.9);
-  box-shadow:0 22px 54px rgba(20,40,80,.26), inset 0 1px 0 rgba(255,255,255,.95)}}
-@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){{
-  .kbCard{{background:#fff}}
+.kbMask{{
+  position:absolute;left:0;right:0;top:0;
+  background:rgba(15,25,45,.28);
+  z-index:200;
+  display:none;
+  align-items:center;
+  justify-content:center;
+  box-sizing:border-box;
+  padding:20px;
+  -webkit-backdrop-filter:blur(7px) saturate(115%);
+  backdrop-filter:blur(7px) saturate(115%);
 }}
-@keyframes kbPop{{from{{transform:scale(.92);opacity:0}}to{{transform:scale(1);opacity:1}}}}
-.kbHead{{padding:20px 18px 16px;color:#fff;display:flex;align-items:center;gap:12px}}
-.kbIcon{{width:48px;height:48px;border-radius:16px;background:rgba(255,255,255,.28);color:#fff;
-  font-size:21px;font-weight:800;display:flex;align-items:center;justify-content:center;flex:none}}
-.kbName{{flex:1;font-size:18px;font-weight:800;line-height:1.35;word-break:break-all}}
-.kbClose{{width:32px;height:32px;border-radius:999px;background:rgba(255,255,255,.32);color:#fff;
-  font-size:20px;line-height:32px;text-align:center;cursor:pointer;flex:none}}
+.kbMask.show{{display:flex}}
+
+/* 详情弹窗始终以“当前视口”为基准垂直+水平居中。
+   同时限制最大高度，绝不会因为内容过高而整体下沉到屏幕底部。 */
+.kbCard{{
+  position:relative;
+  border-radius:28px;
+  width:100%;
+  max-width:360px;
+  max-height:calc(100vh - 40px);
+  overflow:hidden;
+  box-sizing:border-box;
+  animation:kbPop .28s cubic-bezier(.2,.9,.3,1.15);
+  background:rgba(245,249,255,.84);
+  -webkit-backdrop-filter:blur(24px) saturate(155%);
+  backdrop-filter:blur(24px) saturate(155%);
+  border:1px solid rgba(255,255,255,.92);
+  box-shadow:
+    0 26px 70px rgba(20,40,80,.30),
+    0 8px 24px rgba(20,40,80,.12),
+    inset 0 1.5px 0 rgba(255,255,255,.98),
+    inset 0 -1px 0 rgba(110,140,180,.16);
+}}
+.kbCard::before{{
+  content:"";
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+  z-index:10;
+  border-radius:inherit;
+  background:
+    linear-gradient(120deg,rgba(255,255,255,.30),transparent 24%,transparent 72%,rgba(255,255,255,.16)),
+    radial-gradient(160px 90px at 18% 0%,rgba(255,255,255,.34),transparent 78%);
+}}
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){{
+  .kbCard{{background:#f4f8fd}}
+}}
+@keyframes kbPop{{
+  from{{transform:translateY(10px) scale(.94);opacity:0}}
+  65%{{transform:translateY(-2px) scale(1.008);opacity:1}}
+  to{{transform:translateY(0) scale(1);opacity:1}}
+}}
+.kbHead{{
+  position:relative;
+  z-index:1;
+  flex:none;
+  padding:18px 16px 15px;
+  color:#fff;
+  display:flex;
+  align-items:center;
+  gap:12px;
+}}
+.kbIcon{{
+  width:48px;height:48px;border-radius:16px;
+  background:rgba(255,255,255,.30);
+  color:#fff;
+  font-size:21px;font-weight:800;
+  display:flex;align-items:center;justify-content:center;flex:none;
+  border:1px solid rgba(255,255,255,.42);
+  box-shadow:inset 0 1px rgba(255,255,255,.42),0 6px 16px rgba(20,40,80,.12);
+}}
+.kbName{{flex:1;font-size:18px;font-weight:800;line-height:1.35;word-break:break-all;text-shadow:0 1px 2px rgba(20,40,80,.14)}}
+.kbClose{{
+  width:34px;height:34px;border-radius:999px;
+  background:rgba(255,255,255,.30);
+  color:#fff;
+  font-size:20px;line-height:34px;text-align:center;cursor:pointer;flex:none;
+  border:1px solid rgba(255,255,255,.38);
+  box-shadow:inset 0 1px rgba(255,255,255,.42);
+}}
 .kbClose:active{{background:rgba(255,255,255,.55);transform:scale(.9)}}
-.kbBody{{padding:12px 18px 18px;max-height:60vh;overflow-y:auto;-webkit-overflow-scrolling:touch}}
+.kbBody{{
+  position:relative;
+  z-index:1;
+  padding:12px 18px 18px;
+  max-height:calc(100vh - 145px);
+  overflow-y:auto;
+  -webkit-overflow-scrolling:touch;
+  background:rgba(248,251,255,.48);
+}}
 body.kbLock{{overflow:hidden}}
+
+/* 地点卡片和信息行也保持“有实体感”的玻璃，不做完全透明 */
+.kbRoom{{
+  background:rgba(240,249,255,.78)!important;
+  -webkit-backdrop-filter:blur(16px) saturate(145%);
+  backdrop-filter:blur(16px) saturate(145%);
+  box-shadow:
+    0 8px 22px rgba(25,70,105,.12),
+    inset 0 1.5px rgba(255,255,255,.90);
+}}
+.kbRow{{
+  display:flex;align-items:flex-start;padding:11px 0;
+  border-bottom:1px solid rgba(100,125,155,.18);
+  font-size:14px;line-height:1.55;
+}}
+.kbRow:last-child{{border-bottom:none}}
+.kbRow .k{{width:86px;flex:none;color:#71839a;font-size:13px}}
+.kbRow .v{{flex:1;color:#17365f;font-weight:700;word-break:break-all}}
+.kbRow .ki{{font-size:15px;margin-right:3px}}
 .kbRow{{display:flex;align-items:flex-start;padding:11px 0;
   border-bottom:1px solid rgba(148,163,184,.22);font-size:14px;line-height:1.55}}
 .kbRow:last-child{{border-bottom:none}}
@@ -740,7 +833,7 @@ body.kbLock{{overflow:hidden}}
   .cname{{color:#f1f5f9}} .cinfo{{color:#94a3b8}}
   .kbRow .v{{color:#cfe0f5}} .kbRow .k{{color:#8fa0b3}}
   .kbRow{{border-bottom-color:rgba(148,163,184,.2)}}
-  td.today{{background:rgba(59,130,246,.24) !important}}
+  td.today:not(.cls){{background:rgba(59,130,246,.24) !important}}
   .dock{{background:rgba(30,41,59,.72);border-color:rgba(148,163,184,.24)}}
   .dockItem{{color:#94a3b8}}
   .dockItem.on{{color:#fff}}
@@ -751,24 +844,432 @@ body.kbLock{{overflow:hidden}}
   tr.seg-pm td:not(.cls):not(.time){{background:rgba(130,70,25,.22)}}
   tr.seg-nt td:not(.cls):not(.time){{background:rgba(60,70,140,.26)}}
 }}
+
+/* ===== 2026 Liquid Glass polish layer ===== */
+:root{{
+  --glass-bg:rgba(255,255,255,.58);
+  --glass-stroke:rgba(255,255,255,.82);
+  --glass-shadow:0 18px 50px rgba(36,55,105,.16),0 4px 14px rgba(15,23,42,.06);
+  --ease-liquid:cubic-bezier(.22,1,.36,1);
+}}
+body{{padding:12px;overflow-x:hidden}}
+body::before{{content:"";position:fixed;inset:-20%;z-index:-1;pointer-events:none;
+  background:
+    radial-gradient(420px 300px at 12% 16%,rgba(91,141,239,.16),transparent 70%),
+    radial-gradient(380px 280px at 88% 28%,rgba(167,139,250,.13),transparent 70%);
+  filter:blur(10px);animation:bgDrift 18s ease-in-out infinite alternate}}
+@keyframes bgDrift{{from{{transform:translate3d(-1%,0,0) scale(1)}}to{{transform:translate3d(1%,1%,0) scale(1.04)}}}}
+.hero{{position:relative;margin:2px auto 12px;padding:16px 16px 13px;border-radius:26px;
+  overflow:hidden;isolation:isolate;background:rgba(255,255,255,.48);
+  -webkit-backdrop-filter:blur(24px) saturate(180%);backdrop-filter:blur(24px) saturate(180%);
+  border:1px solid var(--glass-stroke);box-shadow:var(--glass-shadow)}}
+.hero::before{{content:"";position:absolute;inset:-55% -20% auto;height:130%;
+  background:radial-gradient(ellipse at 25% 22%,rgba(255,255,255,.92),transparent 55%);
+  filter:blur(18px);z-index:-1;pointer-events:none}}
+.hero::after{{content:"";position:absolute;inset:0;pointer-events:none;
+  background:radial-gradient(280px 120px at var(--mx,18%) var(--my,-10%),rgba(255,255,255,.48),transparent 70%);
+  transition:background .25s ease}}
+.heroTop{{display:flex;align-items:center;justify-content:space-between;position:relative;z-index:1}}
+.hero h1{{text-align:left;font-size:25px;letter-spacing:-.6px;margin:1px 0 1px}}
+.hero .sub{{text-align:left;margin:0;color:#64748b;font-size:12px}}
+.eyebrow{{font-size:9px;font-weight:900;letter-spacing:2.4px;color:#3b82f6;margin-bottom:2px}}
+.livePill{{display:flex;align-items:center;gap:6px;padding:7px 10px;border-radius:999px;
+  color:#2563eb;font-size:11px;font-weight:800;background:rgba(255,255,255,.55);
+  border:1px solid rgba(255,255,255,.8);box-shadow:inset 0 1px rgba(255,255,255,.9),0 5px 14px rgba(37,99,235,.08)}}
+.liveDot{{width:7px;height:7px;border-radius:50%;background:#22c55e;box-shadow:0 0 0 4px rgba(34,197,94,.12);animation:livePulse 1.8s ease-in-out infinite}}
+@keyframes livePulse{{50%{{box-shadow:0 0 0 7px rgba(34,197,94,0)}}}}
+.heroMeta{{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px;position:relative;z-index:1}}
+.metaItem{{display:flex;align-items:center;gap:8px;min-width:0;padding:9px 10px;border-radius:16px;
+  background:rgba(255,255,255,.38);border:1px solid rgba(255,255,255,.62);
+  box-shadow:inset 0 1px rgba(255,255,255,.7)}}
+.metaIcon{{width:28px;height:28px;display:grid;place-items:center;border-radius:10px;background:rgba(255,255,255,.58);font-size:14px;flex:none}}
+.metaItem b{{display:block;font-size:11px;color:#334155;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
+.metaItem small{{display:block;font-size:9.5px;color:#94a3b8;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
+.pick{{margin:10px 0 9px}}
+.pick .btn{{position:relative;overflow:hidden;padding:10px 19px;background:linear-gradient(135deg,#2563eb,#60a5fa);
+  box-shadow:0 10px 25px rgba(37,99,235,.25),inset 0 1px rgba(255,255,255,.55),inset 0 -1px rgba(0,60,160,.12)}}
+.pick .btn::after,.dock::marker{{display:none}}
+.pick .btn::before{{content:"";position:absolute;inset:-80% -20%;background:linear-gradient(105deg,transparent 38%,rgba(255,255,255,.42) 50%,transparent 62%);
+  transform:translateX(-70%) rotate(8deg);transition:transform .65s var(--ease-liquid);pointer-events:none}}
+.pick .btn:active::before{{transform:translateX(70%) rotate(8deg)}}
+.legend{{gap:7px;margin:7px 0 9px}}
+.legend span{{padding:5px 10px;font-size:10.5px;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}}
+.dock{{margin:8px 0 10px;box-shadow:var(--glass-shadow),inset 0 1px 0 rgba(255,255,255,.95);
+  transition:transform .35s var(--ease-liquid),box-shadow .35s ease}}
+.dock:active{{transform:scale(.995)}}
+.dockThumb{{background:linear-gradient(135deg,#2563eb,#60a5fa);
+  box-shadow:0 6px 18px rgba(37,99,235,.34),inset 0 1px rgba(255,255,255,.58)}}
+.dockItem{{min-height:47px}}
+.kbGlass{{border-radius:24px;background:rgba(255,255,255,.68);
+  -webkit-backdrop-filter:blur(18px) saturate(165%);backdrop-filter:blur(18px) saturate(165%);
+  border-color:rgba(255,255,255,.82);box-shadow:var(--glass-shadow)}}
+.kbGlass::before{{content:"";position:absolute;inset:0;z-index:0;pointer-events:none;
+  background:radial-gradient(260px 130px at var(--mx,16%) var(--my,0%),rgba(255,255,255,.26),transparent 70%);
+  transition:background .3s ease}}
+.kbGlass table{{position:relative;z-index:1}}
+th{{background:rgba(37,86,153,.88);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}}
+td.cls{{box-shadow:0 4px 12px rgba(20,40,80,.09),inset 0 1px rgba(255,255,255,.58);
+  transition:transform .25s var(--ease-liquid),filter .25s ease,box-shadow .25s ease}}
+td.cls:active{{transform:scale(.985)}}
+td.today.cls{{transform:none;z-index:6;box-shadow:0 10px 24px rgba(20,40,80,.16),inset 0 1px rgba(255,255,255,.68)}}
+.kbColGlass{{background:linear-gradient(135deg,rgba(255,255,255,.16),rgba(218,234,255,.08) 58%,rgba(255,255,255,.13));
+  -webkit-backdrop-filter:blur(7px) saturate(150%);backdrop-filter:blur(7px) saturate(150%);
+  box-shadow:0 18px 42px rgba(31,38,135,.18),inset 0 1.5px rgba(255,255,255,.95),inset 0 -1.5px rgba(100,116,139,.25),inset 0 0 20px rgba(186,216,255,.28)}}
+.kbColGlass::before{{animation:glassSweep 4.8s ease-in-out infinite}}
+@keyframes glassSweep{{0%,100%{{transform:translateX(-5%);opacity:.7}}50%{{transform:translateX(12%);opacity:1}}}}
+.kbCard{{border-radius:30px;background:rgba(255,255,255,.76);-webkit-backdrop-filter:blur(30px) saturate(185%);backdrop-filter:blur(30px) saturate(185%);
+  box-shadow:0 30px 80px rgba(20,40,80,.28),inset 0 1px rgba(255,255,255,.95)}}
+.kbMask{{background:rgba(15,23,42,.28);-webkit-backdrop-filter:blur(10px) saturate(120%);backdrop-filter:blur(10px) saturate(120%)}}
+@media(max-width:600px){{
+  body{{padding:9px}}
+  .hero{{padding:14px 13px 11px;border-radius:23px}}
+  .heroMeta{{gap:6px}}.metaItem{{padding:8px 7px}}.metaIcon{{width:25px;height:25px}}
+  .hero h1{{font-size:22px}}.livePill{{padding:6px 9px}}
+  .kbCard{{align-self:flex-end;max-width:none;width:100%;border-radius:28px 28px 0 0;margin:0 -20px -20px;
+    animation:sheetIn .38s var(--ease-liquid)}}
+  .kbMask{{align-items:flex-end;padding:20px;overflow:hidden}}
+  .kbBody{{max-height:62vh;padding-bottom:calc(18px + env(safe-area-inset-bottom))}}
+  @keyframes sheetIn{{from{{transform:translateY(35px);opacity:.5}}to{{transform:none;opacity:1}}}}
+}}
+@media(prefers-reduced-motion:reduce){{
+  *,*::before,*::after{{animation-duration:.001ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important;transition-duration:.001ms!important}}
+}}
+
+
+
+/* ===== Liquid Glass V3：选中列只做“玻璃边缘”，绝不覆盖课程 ===== */
+
+/* 选中当天的列：渐变玻璃本体 + 真实模糊。
+   框沉在 z-index:5，课程卡片已随表格抬到 z-index:30 且不透明度 .88，
+   因此模糊只作用于空白格，课程卡片完全不受影响。 */
+.kbColGlass{{
+  position:absolute;
+  z-index:5;
+  pointer-events:none;
+  /* 纵向厚度渐变：上缘实 → 中段最透 → 下缘回升，模拟真实玻璃 */
+  background:
+    linear-gradient(168deg,
+      rgba(255,255,255,.34) 0%,
+      rgba(232,243,255,.15) 24%,
+      rgba(255,255,255,.07) 50%,
+      rgba(214,232,255,.17) 76%,
+      rgba(255,255,255,.31) 100%),
+    radial-gradient(120px 200px at 50% -10%,
+      rgba(255,255,255,.22), transparent 70%) !important;
+  /* 恢复真实模糊（原 none !important 把模糊完全禁掉了） */
+  -webkit-backdrop-filter:blur(26px) saturate(185%) !important;
+  backdrop-filter:blur(26px) saturate(185%) !important;
+  border:1.5px solid rgba(255,255,255,.88);
+  border-radius:22px;
+  box-sizing:border-box;
+  box-shadow:
+    0 0 0 1px rgba(110,170,255,.20),
+    0 10px 28px rgba(55,105,190,.13),
+    inset 0 1.5px 0 rgba(255,255,255,.95),
+    inset 0 -1px 0 rgba(105,140,190,.22),
+    inset 0 0 26px rgba(186,216,255,.22);
+  overflow:hidden;
+}}
+
+/* 柔和的“液态高光”只在边缘附近流动 */
+.kbColGlass::before{{
+  content:"";
+  position:absolute;
+  inset:0;
+  z-index:0;
+  pointer-events:none;
+  background:
+    linear-gradient(105deg,
+      transparent 0%,
+      transparent 35%,
+      rgba(255,255,255,0) 43%,
+      rgba(255,255,255,.48) 49%,
+      rgba(160,210,255,.18) 54%,
+      rgba(255,255,255,0) 61%,
+      transparent 100%);
+  transform:translateX(-120%);
+  animation:kbLiquidEdge 5.2s cubic-bezier(.45,.05,.55,.95) infinite;
+  opacity:.72;
+}}
+.kbColGlass::after{{
+  content:"";
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+  border-radius:inherit;
+  background:
+    radial-gradient(100px 180px at 50% 0%,
+      rgba(255,255,255,.20), transparent 72%),
+    radial-gradient(100px 180px at 50% 100%,
+      rgba(130,200,255,.14), transparent 72%);
+  opacity:.75;
+}}
+@keyframes kbLiquidEdge{{
+  0%,18%{{transform:translateX(-120%);opacity:0}}
+  30%{{opacity:.55}}
+  55%{{transform:translateX(120%);opacity:.72}}
+  72%,100%{{transform:translateX(120%);opacity:0}}
+}}
+
+/* 课程卡片本身改成真正的“类玻璃卡片”：
+   保留每门课自己的色彩，只把颜色变成半透明镜片。 */
+.kbGlass td.cls{{
+  z-index:6 !important;
+  border:1px solid rgba(255,255,255,.58) !important;
+  border-right-color:rgba(255,255,255,.46) !important;
+  border-bottom-color:rgba(90,120,160,.16) !important;
+  background:rgba(255,255,255,.36) !important;
+  -webkit-backdrop-filter:blur(12px) saturate(155%) !important;
+  backdrop-filter:blur(12px) saturate(155%) !important;
+  box-shadow:
+    0 7px 18px rgba(30,55,95,.13),
+    inset 0 1.5px 0 rgba(255,255,255,.82),
+    inset 0 -1px 0 rgba(110,140,180,.14),
+    inset 0 0 12px rgba(255,255,255,.14) !important;
+  overflow:hidden;
+}}
+
+/* 卡片上的镜面高光，不影响文字 */
+.kbGlass td.cls::after{{
+  content:"";
+  position:absolute;
+  left:-45%;
+  top:-35%;
+  width:75%;
+  height:170%;
+  border:0 !important;
+  background:linear-gradient(110deg,
+    transparent 0%,
+    rgba(255,255,255,0) 35%,
+    rgba(255,255,255,.34) 48%,
+    rgba(255,255,255,0) 62%,
+    transparent 100%);
+  transform:rotate(7deg);
+  pointer-events:none;
+  opacity:.55;
+}}
+
+/* 左侧课程色条继续保留，但做成玻璃光纤效果 */
+.kbGlass td.cls::before{{
+  z-index:2;
+  box-shadow:0 0 7px color-mix(in srgb, var(--tc,#3b82f6) 38%, transparent);
+}}
+
+/* 今天课程不要放大，避免相邻课程发生遮挡 */
+.kbGlass td.today.cls{{
+  transform:none !important;
+  z-index:7 !important;
+  filter:saturate(1.12) brightness(.98);
+}}
+
+/* 正在上课提示也不覆盖内容 */
+.kbGlass td.cls.now{{
+  z-index:8 !important;
+}}
+
+/* 移动端进一步减弱玻璃，保证小屏课程文字清楚 */
+@media(max-width:600px){{
+  .kbColGlass{{
+    border-radius:18px;
+    border-width:1.25px;
+    box-shadow:
+      0 0 0 1px rgba(110,170,255,.12),
+      0 7px 20px rgba(55,105,190,.08),
+      inset 0 1px rgba(255,255,255,.90);
+  }}
+  .kbGlass td.cls{{
+    -webkit-backdrop-filter:blur(7px) saturate(145%) !important;
+    backdrop-filter:blur(7px) saturate(145%) !important;
+    background:rgba(255,255,255,.30) !important;
+    box-shadow:
+      0 5px 13px rgba(30,55,95,.11),
+      inset 0 1px rgba(255,255,255,.78) !important;
+  }}
+}}
+
+
+@media(max-width:600px){{
+  .kbMask{{padding:16px}}
+  .kbCard{{
+    width:min(100%,360px);
+    max-height:calc(100vh - 32px);
+    border-radius:26px;
+  }}
+  .kbBody{{
+    max-height:calc(100vh - 132px);
+    padding-left:16px;
+    padding-right:16px;
+  }}
+}}
+@media(max-height:620px){{
+  .kbMask{{padding:10px}}
+  .kbCard{{max-height:calc(100vh - 20px)}}
+  .kbHead{{padding:13px 14px 11px}}
+  .kbIcon{{width:42px;height:42px;border-radius:14px}}
+  .kbName{{font-size:16px}}
+  .kbBody{{max-height:calc(100vh - 105px);padding-top:8px;padding-bottom:12px}}
+}}
+
+
+/* ================= V5：横向周次长条（液态玻璃） ================= */
+.wkbar{{position:relative;margin:2px 0 10px;border-radius:20px;overflow:hidden;isolation:isolate;
+  background:linear-gradient(135deg,
+    rgba(255,255,255,.72) 0%,rgba(238,245,255,.52) 34%,
+    rgba(214,232,255,.44) 62%,rgba(255,255,255,.60) 100%);
+  -webkit-backdrop-filter:blur(26px) saturate(180%);backdrop-filter:blur(26px) saturate(180%);
+  border:1px solid rgba(255,255,255,.88);
+  box-shadow:0 14px 34px rgba(31,38,135,.18),0 3px 9px rgba(15,23,42,.07),
+             inset 0 1.5px 1px rgba(255,255,255,.95),
+             inset 0 -1.5px 1px rgba(148,163,184,.30),
+             inset 0 0 13px rgba(186,216,255,.32)}}
+/* 边缘折射光：上下缘冷暖对比，做出玻璃厚度 */
+.wkbar::after{{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;z-index:2;
+  background:radial-gradient(130px 60px at 12% -18%,rgba(255,255,255,.60),transparent 72%),
+             radial-gradient(150px 70px at 86% 122%,rgba(150,200,255,.34),transparent 72%)}}
+/* 液态高光横扫 */
+.wkbar::before{{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;z-index:3;
+  background:linear-gradient(105deg,transparent 34%,rgba(255,255,255,0) 43%,
+    rgba(255,255,255,.55) 50%,rgba(170,215,255,.20) 55%,rgba(255,255,255,0) 62%,transparent 100%);
+  transform:translateX(-120%);opacity:.75;
+  animation:wkSweep 5.6s cubic-bezier(.45,.05,.55,.95) infinite}}
+@keyframes wkSweep{{0%,16%{{transform:translateX(-120%);opacity:0}}
+  28%{{opacity:.50}}55%{{transform:translateX(120%);opacity:.80}}72%,100%{{transform:translateX(120%);opacity:0}}}}
+/* 点击整条时的液态泛光 */
+.wkbar.glow{{animation:wkGlow .58s var(--ease-liquid)}}
+@keyframes wkGlow{{
+  0%{{box-shadow:0 14px 34px rgba(31,38,135,.18),inset 0 0 13px rgba(186,216,255,.32)}}
+  40%{{box-shadow:0 18px 44px rgba(37,99,235,.34),inset 0 0 28px rgba(186,216,255,.78)}}
+  100%{{box-shadow:0 14px 34px rgba(31,38,135,.18),inset 0 0 13px rgba(186,216,255,.32)}}}}
+
+/* 可横向滑动的轨道 */
+.wkTrack{{position:relative;z-index:1;display:flex;align-items:center;gap:6px;padding:7px 8px;
+  overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;
+  scroll-snap-type:x proximity;scrollbar-width:none}}
+.wkTrack::-webkit-scrollbar{{display:none}}
+/* 苹果分段控件式玻璃滑块 */
+.wkThumb{{position:absolute;top:7px;bottom:7px;left:0;width:0;border-radius:14px;z-index:0;opacity:0;
+  background:linear-gradient(135deg,#2563eb,#60a5fa);
+  box-shadow:0 6px 16px rgba(37,99,235,.36),inset 0 1px 0 rgba(255,255,255,.55);
+  transition:transform .44s cubic-bezier(.34,1.42,.5,1),
+             width .44s cubic-bezier(.34,1.42,.5,1),opacity .25s ease}}
+.wkThumb.on{{opacity:1}}
+.wki{{position:relative;z-index:1;flex:0 0 auto;scroll-snap-align:center;
+  min-width:46px;padding:7px 9px;border:none;border-radius:14px;background:transparent;
+  color:#5b6b82;font-family:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent;
+  display:flex;flex-direction:column;align-items:center;line-height:1.05;
+  transition:color .25s ease,transform .25s var(--ease-liquid)}}
+.wki b{{font-size:14.5px;font-weight:800;letter-spacing:.2px}}
+.wki i{{font-size:9.5px;font-style:normal;font-weight:700;opacity:.62;margin-top:1px}}
+.wki:active{{transform:scale(.9)}}
+.wki.on{{color:#fff}}
+.wki.on i{{opacity:.92}}
+@keyframes wkiPop{{0%{{transform:scale(1)}}42%{{transform:scale(1.18)}}100%{{transform:scale(1)}}}}
+
+/* ===== V8：当天玻璃框——纵向厚度渐变 + 更高模糊，通透但不挡课 ===== */
+/* ① 玻璃框继续下沉(z-index:0)，绝不覆盖课程卡片。
+      白色填充压薄并做成纵向渐变（上缘实→中段最透→下缘回升），
+      质感改由 blur(26px) + 边缘渐晕 + 镜片描边撑起来：
+      框像一片有厚度的玻璃，而不是一块白板。
+      因为框在表格之下，模糊只作用于空白格，课程卡片完全不受影响。 */
+.kbColGlass{{
+  z-index:0 !important;
+  /* 纵向“厚度渐变”：上缘实 → 中段最透 → 下缘回升，
+     白色峰值压到 .34，通透感交给 blur(26px) 去撑。 */
+  background:
+    linear-gradient(168deg,
+      rgba(96,165,250,.62) 0%,
+      rgba(125,185,252,.46) 20%,
+      rgba(96,165,250,.34) 46%,
+      rgba(130,190,253,.48) 74%,
+      rgba(96,165,250,.58) 100%),
+    radial-gradient(120% 68% at 50% 8%,
+      rgba(190,220,255,.55) 0%, rgba(255,255,255,0) 62%),
+    radial-gradient(120% 120% at 50% 50%,
+      rgba(96,165,250,0) 52%, rgba(59,130,246,.30) 100%) !important;
+  -webkit-backdrop-filter:blur(30px) saturate(200%) brightness(1.10) !important;
+  backdrop-filter:blur(30px) saturate(200%) brightness(1.10) !important;
+  border:2px solid rgba(255,255,255,.92) !important;
+  box-shadow:0 18px 44px rgba(37,99,235,.34),
+             0 4px 12px rgba(15,23,42,.12),
+             inset 0 2px 1px rgba(255,255,255,.95),
+             inset 0 -2px 1px rgba(37,99,235,.32),
+             inset 0 0 26px rgba(147,197,253,.55) !important;
+}}
+/* 曲面镜面高光 + 底部虹彩折射（玻璃厚度感），沿用液态玻璃语言 */
+.kbColGlass::before{{
+  content:'';position:absolute;top:-20%;left:-12%;width:80%;height:54%;z-index:0;
+  background:radial-gradient(ellipse at 32% 32%,
+    rgba(255,255,255,.98) 0%, rgba(255,255,255,.44) 42%, rgba(255,255,255,0) 70%);
+  border-radius:50%;filter:blur(9px);pointer-events:none}}
+.kbColGlass::after{{
+  content:'';position:absolute;inset:0;border-radius:inherit;z-index:0;pointer-events:none;
+  background:radial-gradient(ellipse at 80% 112%, rgba(178,210,255,.55) 0%, rgba(178,210,255,0) 58%),
+             radial-gradient(ellipse 120% 100% at 50% 50%,
+               rgba(255,255,255,0) 52%, rgba(255,255,255,.22) 88%, rgba(255,255,255,.34) 100%),
+             repeating-linear-gradient(45deg,
+               rgba(255,255,255,.05) 0px, rgba(255,255,255,.05) 1px,
+               rgba(255,255,255,0) 1px, rgba(255,255,255,0) 3px),
+             linear-gradient(118deg, rgba(255,255,255,0) 52%, rgba(198,222,255,.30) 76%, rgba(255,255,255,.12) 100%);
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.42)}}
+/* ② 关键：把整个表格层抬到玻璃框之上。
+   原表 .kbGlass table{{z-index:1}} 会形成独立层叠上下文，
+   把 td.cls 的 z-index(6/7/8) 全部关在表内 —— 卡片 z-index 调多大都没用，
+   因为整个表格(1) 低于玻璃框(5)，框永远压在卡片上。
+   这里把表抬到 30，卡片才真正置顶；表格背景保持透明，
+   因此空白格处依然透出下沉的玻璃框，模糊感不丢。 */
+.kbGlass > table{{position:relative;z-index:30 !important;background:transparent !important}}
+/* ③ 课程卡片置顶后再抬高不透明度，彻底遮住下沉的玻璃框。
+   玻璃动效（镜面高光、圆角、投影、backdrop 磨砂）一字不改。 */
+.kbGlass td.cls{{
+  background:rgba(255,255,255,.88) !important;
+  -webkit-backdrop-filter:blur(12px) saturate(160%) !important;
+  backdrop-filter:blur(12px) saturate(160%) !important;
+}}
+@media(max-width:600px){{
+  .kbGlass td.cls{{background:rgba(255,255,255,.86) !important}}
+}}
+/* 选中后课程卡片微微放大（玻璃质感与框框动效均不变） */
+.kbGlass td.today.cls{{transform:scale(1.03) !important;z-index:7 !important;
+  box-shadow:0 12px 26px rgba(20,40,80,.20),inset 0 1px rgba(255,255,255,.70)}}
+
+/* ================= V5：详情弹窗玻璃动效 ================= */
+.kbCard::after{{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;z-index:11;
+  background:linear-gradient(105deg,transparent 30%,rgba(255,255,255,0) 42%,
+    rgba(255,255,255,.42) 50%,rgba(175,215,255,.16) 56%,rgba(255,255,255,0) 64%,transparent 100%);
+  transform:translateX(-110%);opacity:.8;
+  animation:kbCardSweep 4.2s cubic-bezier(.45,.05,.55,.95) infinite}}
+@keyframes kbCardSweep{{0%,20%{{transform:translateX(-110%);opacity:0}}
+  35%{{opacity:.55}}60%{{transform:translateX(110%);opacity:.85}}78%,100%{{transform:translateX(110%);opacity:0}}}}
+
+/* ================= V5：手机端弹窗强制居中 ================= */
+@media(max-width:600px){{
+  .kbMask{{align-items:center !important;justify-content:center !important;
+    padding:16px !important;overflow:hidden}}
+  .kbCard{{align-self:center !important;margin:0 !important;
+    width:min(100%,358px) !important;max-width:min(100%,358px) !important;
+    max-height:calc(100vh - 32px);border-radius:26px !important;
+    animation:kbPop .30s cubic-bezier(.2,.9,.3,1.15)}}
+  .kbBody{{max-height:calc(100vh - 150px);padding-left:16px;padding-right:16px}}
+}}
+@media(max-height:620px){{
+  .kbCard{{max-height:calc(100vh - 20px) !important}}
+  .kbBody{{max-height:calc(100vh - 110px)}}
+}}
+
 </style></head><body>
-<h1>我的课表</h1><div class="sub">{esc(semester)} · 共 {MAX_WEEK} 周</div>
-<div style="text-align:center"><span class="pick">
-<button class="btn" id="wkBtn" onclick="toggleDd(event)">第 {current_week} 周<span class="caret">▼</span></button>
-<div class="ddpanel" id="ddPanel"><div class="gtitle">选择周次</div><div class="ddgrid">{opts}</div></div>
-</span></div>
+
+<div class="wkbar" id="wkBar"><div class="wkTrack" id="wkTrack"><div class="wkThumb" id="wkThumb"></div>{wk_items}</div></div>
 <div class="legend">
   <span><i style="background:#f59e0b"></i>上午 1-4节</span>
   <span><i style="background:#f97316"></i>下午 5-8节</span>
   <span><i style="background:#6366f1"></i>晚上 9-10节</span>
 </div>
 {dock_html}
-<div id="panes">{''.join(panes)}</div>
-<div class="sub" style="margin-top:12px">数据来源：学校接口 · 更新于 {now} · 托管 GitHub Pages</div>
+{panes_html}<div class="sub" style="margin-top:12px">数据来源：学校接口 · 更新于 {now} · 托管 GitHub Pages</div>
 <div class="kbMask" id="kbMask"><div class="kbCard"><div class="kbHead"><div class="kbIcon" id="kbIcon"></div><div class="kbName" id="kbName"></div><div class="kbClose" id="kbClose">&times;</div></div><div class="kbBody" id="kbBody"></div></div></div>
 <script>
 /* 放假区间 [起Y,起M,起D, 止Y,止M,止D]，用于 Dock 上标记「放假」。
-   必须放在脚本最顶部：showWeek() 在脚本前半段就会被立即调用，
+   必须放在脚本最顶部：showWeek() 在脚本前半段就伴随即调用，
    若 KB_HOL 定义在后面，var 提升只会声明不赋值 → undefined.length 抛错，
    会中断整个初始化（连课程点击绑定都不会执行）。 */
 var KB_HOL = {_hol_js};
@@ -777,37 +1278,53 @@ function showWeek(n) {{
   for (var i = 0; i < panes.length; i++) {{
     panes[i].style.display = (panes[i].getAttribute('data-wk') === String(n)) ? 'block' : 'none';
   }}
-  document.getElementById('wkBtn').innerHTML = '第 ' + n + ' 周<span class="caret">▼</span>';
-  var opts = document.querySelectorAll('.opt');
-  for (var j = 0; j < opts.length; j++) {{
-    opts[j].className = 'opt' + ((parseInt(opts[j].getAttribute('data-wk')) === n) ? ' on' : '');
+  /* 横向周次长条：更新选中态 + 玻璃滑块 */
+  var btns = document.querySelectorAll('.wki'), act = null;
+  for (var j = 0; j < btns.length; j++) {{
+    var on = (parseInt(btns[j].getAttribute('data-wk'), 10) === n);
+    btns[j].className = 'wki' + (on ? ' on' : '');
+    if (on) act = btns[j];
   }}
-  document.getElementById('ddPanel').classList.remove('show');
+  kbMoveThumb(act, true);
   KB_WK = n;
   var lb = document.getElementById('dockLabel');
   if (lb) lb.textContent = '第 ' + n + ' 周';
   kbDockDates(n);
   kbMarkNow();
 }}
+/* 玻璃滑块：跟随选中项做弹性位移 */
+function kbMoveThumb(el, doScroll) {{
+  var th = document.getElementById('wkThumb');
+  if (!th) return;
+  if (el) {{
+    th.classList.add('on');
+    th.style.width = el.offsetWidth + 'px';
+    th.style.transform = 'translateX(' + el.offsetLeft + 'px)';
+  }} else {{
+    th.classList.remove('on');
+  }}
+  if (doScroll && el && el.scrollIntoView) {{
+    try {{ el.scrollIntoView({{ inline: 'center', block: 'nearest', behavior: 'smooth' }}); }} catch (err) {{}}
+  }}
+}}
 function toggleDd(e) {{
-  e.stopPropagation();
-  var p = document.getElementById('ddPanel'), b = document.getElementById('wkBtn');
-  var on = p.classList.toggle('show');
-  if (b) b.classList.toggle('open', on);
+  if (e && e.stopPropagation) e.stopPropagation();
 }}
 function pick(e, n) {{
-  e.stopPropagation();
+  if (e && e.stopPropagation) e.stopPropagation();
+  var el = (e && e.currentTarget) ? e.currentTarget : null;
+  if (el) {{
+    el.style.animation = 'none'; void el.offsetWidth;
+    el.style.animation = 'wkiPop .46s cubic-bezier(.34,1.5,.5,1)';
+  }}
   showWeek(n);
-  var b = document.getElementById('wkBtn'); if (b) b.classList.remove('open');
-  var p = document.getElementById('ddPanel');
-  if (p) p.classList.remove('show');
-  if (b) {{ b.style.animation = 'none'; void b.offsetWidth; b.style.animation = 'wkPop .42s cubic-bezier(.34,1.5,.5,1)'; }}
+  /* 整条玻璃轻闪一下，苹果那种按下去的液态反馈 */
+  var bar = document.getElementById('wkBar');
+  if (bar) {{ bar.classList.remove('glow'); void bar.offsetWidth; bar.classList.add('glow'); }}
 }}
-document.addEventListener('click', function() {{
-  document.getElementById('ddPanel').classList.remove('show');
-  var b = document.getElementById('wkBtn'); if (b) b.classList.remove('open');
-}});
-showWeek({current_week});
+var _initWk = document.querySelector('.wki.on');
+var KB_INITIAL_WK = _initWk ? (parseInt(_initWk.getAttribute('data-wk'), 10) || 1) : 1;
+showWeek(KB_INITIAL_WK);
 
 /* ── 课程详情弹窗 ── */
 var KB_DAYS = ['', '周一', '周二', '周三', '周四', '周五', '周六', '周日'];
@@ -862,10 +1379,10 @@ function kbRoomCard(text, tint) {{
   var bld = (parts[0] || '').trim();
   var room = (parts.slice(1).join('·') || '').trim();
   if (!room) {{ room = bld; bld = ''; }}
-  var m = /([A-Za-z]{{1,4}}[－-]?\\d{{1,4}}(?:[－-]\\d{{1,4}})?)/.exec(room);
+  var m = /([A-Za-z]{{1,4}}[－-]?\d{{1,4}}(?:[－-]\d{{1,4}})?)/.exec(room);
   var code = m ? m[1] : room;
   var rest = m ? room.replace(m[1], '') : '';
-  rest = rest.replace(/^[（(\\s　]+/, '').replace(/[）)\\s　]+$/, '');
+  rest = rest.replace(/^[（(\s　]+/, '').replace(/[）)\s　]+$/, '');
   var deep = kbTint(tint, 0.32);
   var lite1 = kbTint(tint, 0.95), lite2 = kbTint(tint, 0.87);
   var h = '<div class="kbRoom" style="background:linear-gradient(135deg,' + lite1 + ',' + lite2 +
@@ -1030,10 +1547,10 @@ kbAnnotate();
 /* ── Dock 日期条 + 今天列高亮 + 当前课节脉动 ── */
 var KB_MANUAL = false;   /* 用户是否手动选过某天 */
 var KB_FOCUS = null;     /* 当前聚焦的列 1..6 */
-var KB_WK = {current_week};   /* 当前显示周次 */
+var KB_WK = KB_INITIAL_WK || 1;   /* 当前显示周次 */
 
 function kbMin(s) {{
-  var m = /^(\\d{{1,2}}):(\\d{{2}})$/.exec((s || '').trim());
+  var m = /^(\d{{1,2}}):(\d{{2}})$/.exec((s || '').trim());
   if (!m) return -1;
   return parseInt(m[1], 10) * 60 + parseInt(m[2], 10);
 }}
@@ -1141,7 +1658,7 @@ function kbMarkNow() {{
       var a = kbMin(cs[k].getAttribute('data-t0'));
       var b = kbMin(cs[k].getAttribute('data-t1'));
       if (a < 0 || b < 0) continue;
-      if (nowMin >= a && nowMin <= b) {{
+      if (nowMin >= a && nowMin < b) {{
         cs[k].classList.add('now');
         var sp = document.createElement('div');
         sp.className = 'nowBadge';
@@ -1194,6 +1711,9 @@ function kbFrameRect(pane, col) {{
   return {{ top: Math.round(t - br.top - 2), left: Math.round(l - br.left - 2),
            w: Math.round(r - l + 4), h: Math.round(b - t + 4) }};
 }}
+/* 注：此前的 alpha-mask 挖洞方案已废弃（且该函数从未被调用）。
+   现改由层叠分层解决：玻璃框 z-index:0 下沉，表格 z-index:30 置顶，
+   表格背景透明 —— 空白格透出玻璃框，课程卡片完全压在框之上。 */
 function kbGlassFrame(pane, col) {{
   if (!pane) return;
   var box = pane.querySelector('.kbGlass');
@@ -1225,7 +1745,10 @@ function kbGlassFrame(pane, col) {{
     el.classList.add('on');
   }}
 }}
-window.addEventListener('resize', function () {{ kbGlassFrame(kbCurPane(), KB_FOCUS); }});
+window.addEventListener('resize', function () {{
+  kbGlassFrame(kbCurPane(), KB_FOCUS);
+  var a = document.querySelector('.wki.on'); kbMoveThumb(a, false);
+}});
 function setFocusDay(col) {{
   KB_MANUAL = true;
   KB_FOCUS = col;
@@ -1234,8 +1757,32 @@ function setFocusDay(col) {{
 kbDockDates(KB_WK);
 kbMarkNow();
 setInterval(kbMarkNow, 60000);
+
+/* ── 液态玻璃交互光泽：随指针/手指移动改变折射中心 ── */
+(function(){{
+  var targets = document.querySelectorAll('.hero,.dock,.kbGlass');
+  for(var i=0;i<targets.length;i++){{
+    (function(el){{
+      el.addEventListener('pointermove',function(e){{
+        var r=el.getBoundingClientRect();
+        var x=((e.clientX-r.left)/r.width*100).toFixed(1);
+        var y=((e.clientY-r.top)/r.height*100).toFixed(1);
+        el.style.setProperty('--mx',x+'%'); el.style.setProperty('--my',y+'%');
+      }},{{passive:true}});
+      el.addEventListener('pointerleave',function(){{
+        el.style.setProperty('--mx','18%'); el.style.setProperty('--my','-10%');
+      }},{{passive:true}});
+    }})(targets[i]);
+  }}
+}})();
+/* 当前日期同步到顶部，不依赖手写日期 */
+(function(){{
+  var d=new Date(), el=document.getElementById('heroDate');
+  if(el) el.textContent=(d.getMonth()+1)+'月'+d.getDate()+'日 · '+['周日','周一','周二','周三','周四','周五','周六'][d.getDay()];
+}})();
+
 </script>
-</body></html>"""
+</body></html></body></html>"""
 
 
 def gh_api(method, path, body=None, timeout=30):
