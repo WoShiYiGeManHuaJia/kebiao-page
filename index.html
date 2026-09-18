@@ -1348,6 +1348,13 @@ tr.seg-nt{background:linear-gradient(180deg,rgba(226,235,255,.30),rgba(220,234,2
 }
 
 
+/* ===== 行高微调：课表整体与课程卡片一起拉长一丢丢 =====
+   表格中 tr 的 height 表现为「最小行高」：课名更长时仍会自动撑高，绝不裁字。
+   原来行高由时间列内容决定（约 36px），课程卡片被压得很扁；
+   现在统一抬到 46px，卡片随之变高，课名不再挤。 */
+.kbGlass table tr{height:46px}
+.kbGlass td.time{padding:8px 2px}
+
 </style></head><body>
 
 <div class="wkbarWrap" id="wkBarWrap"><div class="wkbar" id="wkBar"><div class="wkTrack" id="wkTrack"><div class="wkThumb" id="wkThumb"></div><button class="wki" data-wk="1" onclick="pick(event,1)"><b>1</b><i>周</i></button><button class="wki on" data-wk="2" onclick="pick(event,2)"><b>2</b><i>周</i></button><button class="wki" data-wk="3" onclick="pick(event,3)"><b>3</b><i>周</i></button><button class="wki" data-wk="4" onclick="pick(event,4)"><b>4</b><i>周</i></button><button class="wki" data-wk="5" onclick="pick(event,5)"><b>5</b><i>周</i></button><button class="wki" data-wk="6" onclick="pick(event,6)"><b>6</b><i>周</i></button><button class="wki" data-wk="7" onclick="pick(event,7)"><b>7</b><i>周</i></button><button class="wki" data-wk="8" onclick="pick(event,8)"><b>8</b><i>周</i></button><button class="wki" data-wk="9" onclick="pick(event,9)"><b>9</b><i>周</i></button><button class="wki" data-wk="10" onclick="pick(event,10)"><b>10</b><i>周</i></button><button class="wki" data-wk="11" onclick="pick(event,11)"><b>11</b><i>周</i></button><button class="wki" data-wk="12" onclick="pick(event,12)"><b>12</b><i>周</i></button><button class="wki" data-wk="13" onclick="pick(event,13)"><b>13</b><i>周</i></button><button class="wki" data-wk="14" onclick="pick(event,14)"><b>14</b><i>周</i></button><button class="wki" data-wk="15" onclick="pick(event,15)"><b>15</b><i>周</i></button><button class="wki" data-wk="16" onclick="pick(event,16)"><b>16</b><i>周</i></button><button class="wki" data-wk="17" onclick="pick(event,17)"><b>17</b><i>周</i></button><button class="wki" data-wk="18" onclick="pick(event,18)"><b>18</b><i>周</i></button><button class="wki" data-wk="19" onclick="pick(event,19)"><b>19</b><i>周</i></button><button class="wki" data-wk="20" onclick="pick(event,20)"><b>20</b><i>周</i></button></div></div><button class="wkQuick" id="wkQuick" type="button" aria-label="快捷切换周数" aria-expanded="false"><span></span></button><div class="wkQuickPanel" id="wkQuickPanel" aria-hidden="true"><div class="wkQuickGrid" id="wkQuickGrid"></div></div></div>
