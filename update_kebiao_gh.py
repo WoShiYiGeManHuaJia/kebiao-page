@@ -622,9 +622,12 @@ td.cls.now::after{{content:'';position:absolute;inset:2px;border-radius:12px;
   0%,100%{{opacity:1;box-shadow:0 0 0 0 rgba(244,63,94,.35)}}
   50%{{opacity:.75;box-shadow:0 0 0 5px rgba(244,63,94,0)}}
 }}
-.nowBadge{{margin:5px 5px 0 7px;font-size:9.5px;font-weight:800;color:#fff;
+.nowBadge{{position:absolute;left:50%;top:-4px;margin:0 !important;
+  transform:translateX(-50%);white-space:nowrap;
+  font-size:8px;font-weight:800;color:#fff;line-height:1.2;
   background:linear-gradient(135deg,#f43f5e,#fb7185);border-radius:999px;
-  padding:3px 0;letter-spacing:.5px;box-shadow:0 2px 7px rgba(244,63,94,.4)}}
+  padding:1.5px 4px;letter-spacing:-.2px;z-index:12;pointer-events:none;
+  box-shadow:0 2px 6px rgba(244,63,94,.45)}}
 /* ── 选中列：上层悬浮液态毛玻璃圆角框（替代原蓝色高亮）── */
 .kbColGlass{{position:absolute;z-index:5;pointer-events:none;
   border-radius:22px;opacity:0;overflow:hidden;
