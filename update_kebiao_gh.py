@@ -1694,6 +1694,13 @@ tr.seg-nt{{background:linear-gradient(180deg,rgba(226,235,255,.30),rgba(220,234,
 }}
 
 
+/* ===== 行高微调：课表整体与课程卡片一起拉长一丢丢 =====
+   表格中 tr 的 height 表现为「最小行高」：课名更长时仍会自动撑高，绝不裁字。
+   原来行高由时间列内容决定（约 36px），课程卡片被压得很扁；
+   现在统一抬到 46px，卡片随之变高，课名不再挤。 */
+.kbGlass table tr{{height:46px}}
+.kbGlass td.time{{padding:8px 2px}}
+
 </style></head><body>
 
 <div class="wkbarWrap" id="wkBarWrap"><div class="wkbar" id="wkBar"><div class="wkTrack" id="wkTrack"><div class="wkThumb" id="wkThumb"></div>{wk_items}</div></div><button class="wkQuick" id="wkQuick" type="button" aria-label="快捷切换周数" aria-expanded="false"><span></span></button><div class="wkQuickPanel" id="wkQuickPanel" aria-hidden="true"><div class="wkQuickGrid" id="wkQuickGrid"></div></div></div>
