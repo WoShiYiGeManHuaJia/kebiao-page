@@ -622,12 +622,17 @@ td.cls.now::after{{content:'';position:absolute;inset:2px;border-radius:12px;
   0%,100%{{opacity:1;box-shadow:0 0 0 0 rgba(244,63,94,.35)}}
   50%{{opacity:.75;box-shadow:0 0 0 5px rgba(244,63,94,0)}}
 }}
-.nowBadge{{position:absolute;left:50%;top:-4px;margin:0 !important;
-  transform:translateX(-50%);white-space:nowrap;
-  font-size:8px;font-weight:800;color:#fff;line-height:1.2;
-  background:linear-gradient(135deg,#f43f5e,#fb7185);border-radius:999px;
-  padding:1.5px 4px;letter-spacing:-.2px;z-index:12;pointer-events:none;
-  box-shadow:0 2px 6px rgba(244,63,94,.45)}}
+/* 正在上课：回到文档流内，占用自身一行 —— 卡片随之自然增高一点点，
+   而不是靠绝对定位浮在卡片外（overflow:hidden 会把浮标裁掉半截）。
+   强制单行 + 小字号，保证窄列里也放得下，不会折行把整行顶变形。 */
+.nowBadge{{position:relative;display:block;width:auto;
+  margin:2px auto 0 !important;padding:1px 5px;
+  white-space:nowrap;text-align:center;
+  font-size:7px;font-weight:800;color:#fff;line-height:1.25;
+  letter-spacing:-.2px;
+  background:linear-gradient(135deg,#f43f5e,#fb7185);
+  border-radius:999px;z-index:5;pointer-events:none;
+  box-shadow:0 1px 4px rgba(244,63,94,.40)}}
 /* ── 选中列：上层悬浮液态毛玻璃圆角框（替代原蓝色高亮）── */
 .kbColGlass{{position:absolute;z-index:5;pointer-events:none;
   border-radius:22px;opacity:0;overflow:hidden;
