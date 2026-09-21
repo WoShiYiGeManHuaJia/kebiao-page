@@ -1852,7 +1852,7 @@ function kbRoomCard(text, tint) {{
   var m = /([A-Za-z]{{1,4}}[－-]?\d{{1,4}}(?:[－-]\d{{1,4}})?)/.exec(room);
   var code = m ? m[1] : room;
   var rest = m ? room.replace(m[1], '') : '';
-  rest = rest.replace(/^[（(\s　]+/, '').replace(/[）)\s　]+$/, '');
+  rest = rest.replace(/^[（(\\s　]+/, ''.replace(/[）)\s　]+$/, '');
   var deep = kbTint(tint, 0.32);
   var lite1 = kbTint(tint, 0.95), lite2 = kbTint(tint, 0.87);
   var h = '<div class="kbRoom" style="background:linear-gradient(135deg,' + lite1 + ',' + lite2 +
@@ -2328,7 +2328,7 @@ setInterval(kbMarkNow, 60000);
     for(var i=0;i<cards.length;i++){{
       var card=cards[i], name=card.querySelector('.cname');
       if(!name) continue;
-      var text=(name.textContent||'').replace(/\s+/g,'').trim();
+      var text=(name.textContent||'').replace(/\\s+/g,'').trim();
       var len=text.length;
       var fs = len<=8 ? 13 : len<=12 ? 12.5 : len<=16 ? 12 : len<=22 ? 11.5 : len<=30 ? 11 : 10.5;
       name.style.fontSize=fs+'px';
@@ -2355,7 +2355,7 @@ setInterval(kbMarkNow, 60000);
 }})();
 
 </script>
-</body></html></body></html>"""
+</body></html>"""
 
 
 def gh_api(method, path, body=None, timeout=30):
@@ -2436,12 +2436,25 @@ def write_status(info):
         return False
 
 
+
+def _sanitize(s):
+    """剔除 UTF-8 无法编码的字符（如孤立代理字符），保证推送不炸。"""
+    if not isinstance(s, str):
+        return s
+    try:
+        s.encode("utf-8")
+        return s
+    except UnicodeEncodeError:
+        return s.encode("utf-8", "ignore").decode("utf-8", "ignore")
+
+
 def push_to_github(html):
+    html = _sanitize(html)
     cur = gh_api("GET", f"/repos/{GH_REPO}/contents/{GH_PAGE}")
     if not isinstance(cur, dict):
         raise RuntimeError("读取远端 index.html 失败：gh_api 返回 %r" % (cur,))
     old_sha = cur.get("sha")
-    if base64.b64decode(cur.get("content") or "").decode() == html:
+    if base64.b64decode(cur.get("content") or "").decode("utf-8", "ignore") == html:
         print("内容无变化，跳过推送")
         return "no-change"
     body = {
