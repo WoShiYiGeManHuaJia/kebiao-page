@@ -568,7 +568,7 @@ td.hol{{background-image:repeating-linear-gradient(135deg,
   background-color:rgba(148,163,184,.10) !important}}
 
 /* 课程块：真圆角卡片 */
-td.cls{{position:relative;z-index:6;cursor:pointer;padding:6px 3px 6px 7px;
+td.cls{{position:relative;z-index:6;cursor:pointer;padding:4px 3px 4px 7px;
   -webkit-tap-highlight-color:transparent;background-clip:padding-box;
   border-radius:14px;background-clip:border-box;
   border-right-color:transparent;border-bottom-color:transparent;
@@ -582,13 +582,9 @@ td.cls .cinfo{{display:none !important}}
 td.cls::after{{content:'';position:absolute;right:6px;bottom:5px;width:0;height:0;
   border-left:4px solid transparent;border-bottom:4px solid rgba(15,23,42,.20)}}
 td.cls::before{{content:'';position:absolute;left:2px;top:5px;bottom:5px;width:4px;
-  background:linear-gradient(180deg,
-    var(--tc,#3b82f6) 0%,
-    color-mix(in srgb, var(--tc,#3b82f6) 60%, #ffffff) 100%);
-  border-radius:999px;
-  box-shadow:0 0 6px color-mix(in srgb, var(--tc,#3b82f6) 30%, transparent)}}
+  background:var(--tc,#3b82f6);border-radius:999px}}
 td.cls:active{{opacity:.82}}
-.cname{{font-weight:800;font-size:12px;color:#0b1220;line-height:1.38;padding-left:6px}}
+.cname{{font-weight:800;font-size:12px;color:#0b1220;line-height:1.32;padding-left:6px}}
 .cinfo{{font-size:10.5px;color:#475569;margin-top:2px;line-height:1.45;padding-left:6px}}
 
 /* ── 今天列：强对比高亮 ── */
@@ -623,23 +619,12 @@ td.cls.now{{z-index:7}}
 td.cls.now::after{{content:'';position:absolute;inset:2px;border-radius:12px;
   border:2.5px solid #f43f5e;pointer-events:none;animation:kbPulse 1.6s ease-in-out infinite}}
 @keyframes kbPulse{{
-  0%{{opacity:1;box-shadow:0 0 0 0 rgba(244,63,94,.40)}}
-  70%{{opacity:.84;box-shadow:0 0 0 6px rgba(244,63,94,0)}}
-  100%{{opacity:1;box-shadow:0 0 0 0 rgba(244,63,94,0)}}
+  0%,100%{{opacity:1;box-shadow:0 0 0 0 rgba(244,63,94,.35)}}
+  50%{{opacity:.75;box-shadow:0 0 0 5px rgba(244,63,94,0)}}
 }}
-/* 正在上课：回到文档流内，占用自身一行 —— 卡片随之自然增高一点点，
-   而不是靠绝对定位浮在卡片外（overflow:hidden 会把浮标裁掉半截）。
-   强制单行 + 小字号，保证窄列里也放得下，不会折行把整行顶变形。 */
-.nowBadge{{position:relative;display:table;width:auto;
-  max-width:calc(100% - 8px);box-sizing:border-box;
-  margin:3px auto 0 !important;padding:1px 4px;
-  white-space:nowrap;text-align:center;
-  font-size:6.8px;font-weight:800;color:#fff;line-height:1.3;
-  letter-spacing:-.2px;
-  background:linear-gradient(135deg,rgba(244,63,94,.94),rgba(251,113,133,.94));
-  -webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);
-  border-radius:999px;z-index:5;pointer-events:none;
-  box-shadow:0 1px 4px rgba(244,63,94,.40)}}
+.nowBadge{{margin:5px 5px 0 7px;font-size:9.5px;font-weight:800;color:#fff;
+  background:linear-gradient(135deg,#f43f5e,#fb7185);border-radius:999px;
+  padding:3px 0;letter-spacing:.5px;box-shadow:0 2px 7px rgba(244,63,94,.4)}}
 /* ── 选中列：上层悬浮液态毛玻璃圆角框（替代原蓝色高亮）── */
 .kbColGlass{{position:absolute;z-index:5;pointer-events:none;
   border-radius:22px;opacity:0;overflow:hidden;
@@ -819,7 +804,7 @@ body.kbLock{{overflow:hidden}}
 .kbRow .ki{{font-size:15px;margin-right:3px}}
 
 /* 上课地点：置顶高亮大卡片，一眼可见 */
-.kbRoom{{display:flex;align-items:center;gap:11px;margin:2px 0 8px;padding:12px;
+.kbRoom{{display:flex;align-items:center;gap:11px;margin:2px 0 13px;padding:12px;
   border-radius:18px;border:1.5px solid;
   box-shadow:0 8px 22px rgba(20,40,80,.14), inset 0 1px 0 rgba(255,255,255,.92);
   animation:rmIn .34s cubic-bezier(.34,1.4,.5,1)}}
@@ -868,10 +853,10 @@ body.kbLock{{overflow:hidden}}
     border-color:rgba(148,163,184,.22)}}
   .kbCard{{background:rgba(30,41,59,.88);border-color:rgba(148,163,184,.22)}}
   .kbRoom{{box-shadow:0 8px 22px rgba(0,0,0,.34)}}
-  .kbRoom .rmLabel{{color:#94a3b8}} .kbRoom .rmSub{{color:#cbd5e1}}
-  .kbRoom .rmCopy{{background:rgba(255,255,255,.22)}}
   .kbTime{{box-shadow:0 5px 14px rgba(0,0,0,.28)}}
   .kbTime .tmLabel{{color:#94a3b8}}
+  .kbRoom .rmLabel{{color:#94a3b8}} .kbRoom .rmSub{{color:#cbd5e1}}
+  .kbRoom .rmCopy{{background:rgba(255,255,255,.22)}}
   .kbRow.dim .v{{color:#cbd5e1}}
   .time{{background:rgba(30,41,59,.85)}} .time .sec-no{{color:#e2e8f0}}
   .cname{{color:#f1f5f9}} .cinfo{{color:#94a3b8}}
@@ -1212,7 +1197,7 @@ td.today.cls{{transform:none;z-index:6;box-shadow:inset 0 1px rgba(255,255,255,.
 /* 苹果分段控件式玻璃滑块 */
 .wkThumb{{position:absolute;top:7px;bottom:7px;left:0;width:0;border-radius:14px;z-index:0;opacity:0;
   background:linear-gradient(135deg,#2563eb,#60a5fa);
-  box-shadow:0 8px 20px rgba(37,99,235,.42),inset 0 1px 0 rgba(255,255,255,.72),inset 0 -1px 0 rgba(255,255,255,.24);
+  box-shadow:0 6px 16px rgba(37,99,235,.36),inset 0 1px 0 rgba(255,255,255,.55);
   transition:transform .44s cubic-bezier(.34,1.42,.5,1),
              width .44s cubic-bezier(.34,1.42,.5,1),opacity .25s ease}}
 .wkThumb.on{{opacity:1}}
@@ -1224,7 +1209,7 @@ td.today.cls{{transform:none;z-index:6;box-shadow:inset 0 1px rgba(255,255,255,.
 .wki b{{font-size:14.5px;font-weight:800;letter-spacing:.2px}}
 .wki i{{font-size:9.5px;font-style:normal;font-weight:700;opacity:.62;margin-top:1px}}
 .wki:active{{transform:scale(.9)}}
-.wki.on{{color:#fff;text-shadow:0 1px 2px rgba(29,78,216,.45)}}
+.wki.on{{color:#fff}}
 .wki.on i{{opacity:.92}}
 @keyframes wkiPop{{0%{{transform:scale(1)}}42%{{transform:scale(1.18)}}100%{{transform:scale(1)}}}}
 
@@ -1723,13 +1708,6 @@ tr.seg-nt{{background:linear-gradient(180deg,rgba(226,235,255,.30),rgba(220,234,
 }}
 
 
-/* ===== 行高微调：课表整体与课程卡片一起拉长一丢丢 =====
-   表格中 tr 的 height 表现为「最小行高」：课名更长时仍会自动撑高，绝不裁字。
-   原来行高由时间列内容决定（约 36px），课程卡片被压得很扁；
-   现在统一抬到 46px，卡片随之变高，课名不再挤。 */
-.kbGlass table tr{{height:46px}}
-.kbGlass td.time{{padding:8px 2px}}
-
 </style></head><body>
 
 <div class="wkbarWrap" id="wkBarWrap"><div class="wkbar" id="wkBar"><div class="wkTrack" id="wkTrack"><div class="wkThumb" id="wkThumb"></div>{wk_items}</div></div><button class="wkQuick" id="wkQuick" type="button" aria-label="快捷切换周数" aria-expanded="false"><span></span></button><div class="wkQuickPanel" id="wkQuickPanel" aria-hidden="true"><div class="wkQuickGrid" id="wkQuickGrid"></div></div></div>
@@ -1797,7 +1775,6 @@ function pick(e, n) {{
   var bar = document.getElementById('wkBar');
   if (bar) {{ bar.classList.remove('glow'); void bar.offsetWidth; bar.classList.add('glow'); }}
 }}
-/* 按「今天」落在哪个 data-mon 区间算出当前周次，不再依赖生成时写死的 .on 标记 */
 function kbWeekOfToday() {{
   var ps = document.querySelectorAll('.pane[data-wk][data-mon]');
   if (!ps.length) return 0;
@@ -1865,21 +1842,6 @@ function kbRow(icon, k, v, cls) {{
   return '<div class="kbRow' + (cls ? ' ' + cls : '') + '"><div class="k"><span class="ki">' + icon +
          '</span>' + kbEsc(k) + '</div><div class="v">' + kbEsc(v) + '</div></div>';
 }}
-/* 上课时间：地点卡片下方的小一版提示（同构样式、尺寸缩小一号） */
-function kbTimeCard(time, tint) {{
-  if (!time) return '';
-  var deep = kbTint(tint, 0.32);
-  var lite1 = kbTint(tint, 0.96), lite2 = kbTint(tint, 0.90);
-  var h = '<div class="kbTime" style="background:linear-gradient(135deg,' + lite1 + ',' + lite2 +
-          ');border-color:' + kbTint(tint, 0.60) + '">';
-  h += '<div class="tmIcon" style="background:' + deep + '">\uD83D\uDD50</div>';
-  h += '<div class="tmMain">';
-  h += '<div class="tmLabel">上课时间</div>';
-  h += '<div class="tmVal" style="color:' + deep + '">' + kbEsc(time) + '</div>';
-  h += '</div>';
-  h += '</div>';
-  return h;
-}}
 /* 上课地点：大号高亮卡片（课程主色），房间号超大字 + 复制按钮 */
 function kbRoomCard(text, tint) {{
   if (!text) return '';
@@ -1903,6 +1865,21 @@ function kbRoomCard(text, tint) {{
   if (sub) h += '<div class="rmSub">' + kbEsc(sub) + '</div>';
   h += '</div>';
   h += '<div class="rmCopy" data-room="' + kbEsc(code) + '" onclick="kbCopyRoom(event,this)">复制</div>';
+  h += '</div>';
+  return h;
+}}
+/* 上课时间：地点卡片下方的小一版提示（同构样式、尺寸缩小一号） */
+function kbTimeCard(time, tint) {{
+  if (!time) return '';
+  var deep = kbTint(tint, 0.32);
+  var lite1 = kbTint(tint, 0.96), lite2 = kbTint(tint, 0.90);
+  var h = '<div class="kbTime" style="background:linear-gradient(135deg,' + lite1 + ',' + lite2 +
+          ');border-color:' + kbTint(tint, 0.60) + '">';
+  h += '<div class="tmIcon" style="background:' + deep + '">\uD83D\uDD50</div>';
+  h += '<div class="tmMain">';
+  h += '<div class="tmLabel">上课时间</div>';
+  h += '<div class="tmVal" style="color:' + deep + '">' + kbEsc(time) + '</div>';
+  h += '</div>';
   h += '</div>';
   return h;
 }}
@@ -2009,11 +1986,11 @@ function kbOpen(td) {{
   for (var ri = 0; ri < KB_INFO_LABELS.length; ri++) {{
     if (KB_INFO_LABELS[ri] === '教室') {{ roomIdx = ri; break; }}
   }}
+  var timeIdx = -1;
+  for (var ti = 0; ti < KB_INFO_LABELS.length; ti++) {{ if (KB_INFO_LABELS[ti] === '\u65f6\u95f4') {{ timeIdx = ti; break; }} }}
   var h = '';
   /* 上课地点置顶为高亮大卡片 */
   if (roomIdx >= 0 && infos[roomIdx]) {{
-    var timeIdx = -1;
-    for (var ti = 0; ti < KB_INFO_LABELS.length; ti++) {{ if (KB_INFO_LABELS[ti] === '\u65f6\u95f4') {{ timeIdx = ti; break; }} }}
     var _t0 = td.getAttribute('data-t0') || '', _t1 = td.getAttribute('data-t1') || '';
     var timeText = (_t0 && _t1) ? (_t0 + '-' + _t1)
                  : ((timeIdx >= 0 && infos[timeIdx]) ? infos[timeIdx].textContent.trim() : '');
@@ -2025,6 +2002,7 @@ function kbOpen(td) {{
   h += kbRow('⏰', '节次', td.getAttribute('data-sectext'), 'dim');
   for (var i = 0; i < infos.length; i++) {{
     if (i === roomIdx) continue;   /* 教室已置顶，此处不再重复 */
+    if (i === timeIdx) continue;   /* 上课时间已由小卡显示，此处不再重复 */
     h += kbRow(ICONS[i] || '📌', KB_INFO_LABELS[i] || ('信息' + (i + 1)),
                infos[i].textContent.trim(), (KB_INFO_LABELS[i] === '教师') ? 'dim' : '');
   }}
@@ -2270,14 +2248,7 @@ function setFocusDay(col) {{
 }}
 kbDockDates(KB_WK);
 kbMarkNow();
-/* 每分钟刷新「今天/正在上课」高亮；若页面长期开着跨了一周，且用户没手动选过周，自动跟到新的一周 */
-setInterval(function () {{
-  if (!KB_MANUAL_WK) {{
-    var w = kbWeekOfToday();
-    if (w && w !== KB_WK) showWeek(w);
-  }}
-  kbMarkNow();
-}}, 60000);
+setInterval(kbMarkNow, 60000);
 
 /* ── 液态玻璃交互光泽：随指针/手指移动改变折射中心 ── */
 (function(){{
