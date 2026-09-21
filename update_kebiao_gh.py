@@ -819,7 +819,7 @@ body.kbLock{{overflow:hidden}}
 .kbRow .ki{{font-size:15px;margin-right:3px}}
 
 /* 上课地点：置顶高亮大卡片，一眼可见 */
-.kbRoom{{display:flex;align-items:center;gap:11px;margin:2px 0 13px;padding:12px;
+.kbRoom{{display:flex;align-items:center;gap:11px;margin:2px 0 8px;padding:12px;
   border-radius:18px;border:1.5px solid;
   box-shadow:0 8px 22px rgba(20,40,80,.14), inset 0 1px 0 rgba(255,255,255,.92);
   animation:rmIn .34s cubic-bezier(.34,1.4,.5,1)}}
@@ -832,10 +832,21 @@ body.kbLock{{overflow:hidden}}
 .kbRoom .rmLabel{{font-size:10.5px;font-weight:800;letter-spacing:1.2px;color:#64748b;margin-bottom:1px}}
 .kbRoom .rmCode{{font-size:23px;font-weight:900;line-height:1.14;letter-spacing:.3px;word-break:break-all}}
 .kbRoom .rmSub{{font-size:11.5px;color:#475569;margin-top:3px;line-height:1.35;word-break:break-all}}
-.kbRoom .rmTime{{display:inline-flex;align-items:center;gap:4px;margin-top:5px;font-size:11.5px;font-weight:800;color:#334155;background:rgba(255,255,255,.72);padding:3px 9px;border-radius:999px;line-height:1.3;letter-spacing:.2px}}
 .kbRoom .rmCopy{{flex:none;font-size:11px;font-weight:800;color:#fff;padding:6px 11px;
   border-radius:999px;background:rgba(15,23,42,.32);cursor:pointer;-webkit-tap-highlight-color:transparent}}
 .kbRoom .rmCopy:active{{transform:scale(.9);background:rgba(15,23,42,.5)}}
+/* 上课时间：地点大卡片正下方的「小一版」提示，样式同构、尺寸缩小 */
+.kbTime{{display:flex;align-items:center;gap:9px;margin:0 0 13px;padding:9px 12px;
+  border-radius:14px;border:1.5px solid;
+  box-shadow:0 5px 14px rgba(20,40,80,.10), inset 0 1px 0 rgba(255,255,255,.88);
+  animation:tmIn .34s cubic-bezier(.34,1.4,.5,1) .05s backwards}}
+@keyframes tmIn{{from{{opacity:0;transform:translateY(-4px) scale(.97)}}to{{opacity:1;transform:none}}}}
+.kbTime .tmIcon{{width:28px;height:28px;border-radius:10px;flex:none;display:flex;
+  align-items:center;justify-content:center;font-size:14px;
+  box-shadow:0 2px 7px rgba(20,40,80,.18)}}
+.kbTime .tmMain{{flex:1;min-width:0}}
+.kbTime .tmLabel{{font-size:10px;font-weight:800;letter-spacing:1.1px;color:#64748b;margin-bottom:1px}}
+.kbTime .tmVal{{font-size:17px;font-weight:900;line-height:1.16;letter-spacing:.3px;word-break:break-all}}
 /* 其余信息弱化，衬托地点 */
 .kbRow.dim .v{{font-weight:600;color:#334155}}
 
@@ -858,8 +869,9 @@ body.kbLock{{overflow:hidden}}
   .kbCard{{background:rgba(30,41,59,.88);border-color:rgba(148,163,184,.22)}}
   .kbRoom{{box-shadow:0 8px 22px rgba(0,0,0,.34)}}
   .kbRoom .rmLabel{{color:#94a3b8}} .kbRoom .rmSub{{color:#cbd5e1}}
-  .kbRoom .rmTime{{color:#e2e8f0;background:rgba(255,255,255,.15)}}
   .kbRoom .rmCopy{{background:rgba(255,255,255,.22)}}
+  .kbTime{{box-shadow:0 5px 14px rgba(0,0,0,.28)}}
+  .kbTime .tmLabel{{color:#94a3b8}}
   .kbRow.dim .v{{color:#cbd5e1}}
   .time{{background:rgba(30,41,59,.85)}} .time .sec-no{{color:#e2e8f0}}
   .cname{{color:#f1f5f9}} .cinfo{{color:#94a3b8}}
@@ -1853,8 +1865,23 @@ function kbRow(icon, k, v, cls) {{
   return '<div class="kbRow' + (cls ? ' ' + cls : '') + '"><div class="k"><span class="ki">' + icon +
          '</span>' + kbEsc(k) + '</div><div class="v">' + kbEsc(v) + '</div></div>';
 }}
+/* 上课时间：地点卡片下方的小一版提示（同构样式、尺寸缩小一号） */
+function kbTimeCard(time, tint) {{
+  if (!time) return '';
+  var deep = kbTint(tint, 0.32);
+  var lite1 = kbTint(tint, 0.96), lite2 = kbTint(tint, 0.90);
+  var h = '<div class="kbTime" style="background:linear-gradient(135deg,' + lite1 + ',' + lite2 +
+          ');border-color:' + kbTint(tint, 0.60) + '">';
+  h += '<div class="tmIcon" style="background:' + deep + '">\uD83D\uDD50</div>';
+  h += '<div class="tmMain">';
+  h += '<div class="tmLabel">上课时间</div>';
+  h += '<div class="tmVal" style="color:' + deep + '">' + kbEsc(time) + '</div>';
+  h += '</div>';
+  h += '</div>';
+  return h;
+}}
 /* 上课地点：大号高亮卡片（课程主色），房间号超大字 + 复制按钮 */
-function kbRoomCard(text, tint, time) {{
+function kbRoomCard(text, tint) {{
   if (!text) return '';
   var parts = String(text).split('·');
   var bld = (parts[0] || '').trim();
@@ -1872,7 +1899,6 @@ function kbRoomCard(text, tint, time) {{
   h += '<div class="rmMain">';
   h += '<div class="rmLabel">上课地点</div>';
   h += '<div class="rmCode" style="color:' + deep + '">' + kbEsc(code) + '</div>';
-  if (time) h += '<div class="rmTime">\uD83D\uDD50 ' + kbEsc(time) + '</div>';
   var sub = (bld ? bld : '') + (bld && rest ? ' · ' : '') + rest;
   if (sub) h += '<div class="rmSub">' + kbEsc(sub) + '</div>';
   h += '</div>';
@@ -1991,7 +2017,8 @@ function kbOpen(td) {{
     var _t0 = td.getAttribute('data-t0') || '', _t1 = td.getAttribute('data-t1') || '';
     var timeText = (_t0 && _t1) ? (_t0 + '-' + _t1)
                  : ((timeIdx >= 0 && infos[timeIdx]) ? infos[timeIdx].textContent.trim() : '');
-    h += kbRoomCard(infos[roomIdx].textContent.trim(), raw, timeText);
+    h += kbRoomCard(infos[roomIdx].textContent.trim(), raw);
+    h += kbTimeCard(timeText, raw);
   }}
   h += kbRow('🗓️', '周次', td.getAttribute('data-wk') ? ('第 ' + td.getAttribute('data-wk') + ' 周') : '', 'dim');
   h += kbRow('📅', '星期', td.getAttribute('data-day'), 'dim');
