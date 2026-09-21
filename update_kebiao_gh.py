@@ -832,6 +832,7 @@ body.kbLock{{overflow:hidden}}
 .kbRoom .rmLabel{{font-size:10.5px;font-weight:800;letter-spacing:1.2px;color:#64748b;margin-bottom:1px}}
 .kbRoom .rmCode{{font-size:23px;font-weight:900;line-height:1.14;letter-spacing:.3px;word-break:break-all}}
 .kbRoom .rmSub{{font-size:11.5px;color:#475569;margin-top:3px;line-height:1.35;word-break:break-all}}
+.kbRoom .rmTime{{display:inline-flex;align-items:center;gap:4px;margin-top:5px;font-size:11.5px;font-weight:800;color:#334155;background:rgba(255,255,255,.72);padding:3px 9px;border-radius:999px;line-height:1.3;letter-spacing:.2px}}
 .kbRoom .rmCopy{{flex:none;font-size:11px;font-weight:800;color:#fff;padding:6px 11px;
   border-radius:999px;background:rgba(15,23,42,.32);cursor:pointer;-webkit-tap-highlight-color:transparent}}
 .kbRoom .rmCopy:active{{transform:scale(.9);background:rgba(15,23,42,.5)}}
@@ -857,6 +858,7 @@ body.kbLock{{overflow:hidden}}
   .kbCard{{background:rgba(30,41,59,.88);border-color:rgba(148,163,184,.22)}}
   .kbRoom{{box-shadow:0 8px 22px rgba(0,0,0,.34)}}
   .kbRoom .rmLabel{{color:#94a3b8}} .kbRoom .rmSub{{color:#cbd5e1}}
+  .kbRoom .rmTime{{color:#e2e8f0;background:rgba(255,255,255,.15)}}
   .kbRoom .rmCopy{{background:rgba(255,255,255,.22)}}
   .kbRow.dim .v{{color:#cbd5e1}}
   .time{{background:rgba(30,41,59,.85)}} .time .sec-no{{color:#e2e8f0}}
@@ -1783,8 +1785,26 @@ function pick(e, n) {{
   var bar = document.getElementById('wkBar');
   if (bar) {{ bar.classList.remove('glow'); void bar.offsetWidth; bar.classList.add('glow'); }}
 }}
+/* 按「今天」落在哪个 data-mon 区间算出当前周次，不再依赖生成时写死的 .on 标记 */
+function kbWeekOfToday() {{
+  var ps = document.querySelectorAll('.pane[data-wk][data-mon]');
+  if (!ps.length) return 0;
+  var n = new Date();
+  var t = new Date(n.getFullYear(), n.getMonth(), n.getDate()).getTime();
+  var best = 0, bd = -1;
+  for (var i = 0; i < ps.length; i++) {{
+    var m = /^(\d{{4}})-(\d{{1,2}})-(\d{{1,2}})$/.exec(ps[i].getAttribute('data-mon') || '');
+    if (!m) continue;
+    var mon = new Date(+m[1], +m[2] - 1, +m[3]).getTime();
+    var wk = parseInt(ps[i].getAttribute('data-wk'), 10);
+    if (t >= mon && t <= mon + 6 * 86400000) return wk;
+    var df = (t < mon) ? (mon - t) : (t - mon - 6 * 86400000);
+    if (bd < 0 || df < bd) {{ bd = df; best = wk; }}
+  }}
+  return best || 0;
+}}
 var _initWk = document.querySelector('.wki.on');
-var KB_INITIAL_WK = _initWk ? (parseInt(_initWk.getAttribute('data-wk'), 10) || 1) : 1;
+var KB_INITIAL_WK = kbWeekOfToday() || (_initWk ? (parseInt(_initWk.getAttribute('data-wk'), 10) || 1) : 1);
 showWeek(KB_INITIAL_WK);
 
 /* ── 课程详情弹窗 ── */
@@ -1834,7 +1854,7 @@ function kbRow(icon, k, v, cls) {{
          '</span>' + kbEsc(k) + '</div><div class="v">' + kbEsc(v) + '</div></div>';
 }}
 /* 上课地点：大号高亮卡片（课程主色），房间号超大字 + 复制按钮 */
-function kbRoomCard(text, tint) {{
+function kbRoomCard(text, tint, time) {{
   if (!text) return '';
   var parts = String(text).split('·');
   var bld = (parts[0] || '').trim();
@@ -1852,6 +1872,7 @@ function kbRoomCard(text, tint) {{
   h += '<div class="rmMain">';
   h += '<div class="rmLabel">上课地点</div>';
   h += '<div class="rmCode" style="color:' + deep + '">' + kbEsc(code) + '</div>';
+  if (time) h += '<div class="rmTime">\uD83D\uDD50 ' + kbEsc(time) + '</div>';
   var sub = (bld ? bld : '') + (bld && rest ? ' · ' : '') + rest;
   if (sub) h += '<div class="rmSub">' + kbEsc(sub) + '</div>';
   h += '</div>';
@@ -1965,7 +1986,12 @@ function kbOpen(td) {{
   var h = '';
   /* 上课地点置顶为高亮大卡片 */
   if (roomIdx >= 0 && infos[roomIdx]) {{
-    h += kbRoomCard(infos[roomIdx].textContent.trim(), raw);
+    var timeIdx = -1;
+    for (var ti = 0; ti < KB_INFO_LABELS.length; ti++) {{ if (KB_INFO_LABELS[ti] === '\u65f6\u95f4') {{ timeIdx = ti; break; }} }}
+    var _t0 = td.getAttribute('data-t0') || '', _t1 = td.getAttribute('data-t1') || '';
+    var timeText = (_t0 && _t1) ? (_t0 + '-' + _t1)
+                 : ((timeIdx >= 0 && infos[timeIdx]) ? infos[timeIdx].textContent.trim() : '');
+    h += kbRoomCard(infos[roomIdx].textContent.trim(), raw, timeText);
   }}
   h += kbRow('🗓️', '周次', td.getAttribute('data-wk') ? ('第 ' + td.getAttribute('data-wk') + ' 周') : '', 'dim');
   h += kbRow('📅', '星期', td.getAttribute('data-day'), 'dim');
@@ -2217,7 +2243,14 @@ function setFocusDay(col) {{
 }}
 kbDockDates(KB_WK);
 kbMarkNow();
-setInterval(kbMarkNow, 60000);
+/* 每分钟刷新「今天/正在上课」高亮；若页面长期开着跨了一周，且用户没手动选过周，自动跟到新的一周 */
+setInterval(function () {{
+  if (!KB_MANUAL_WK) {{
+    var w = kbWeekOfToday();
+    if (w && w !== KB_WK) showWeek(w);
+  }}
+  kbMarkNow();
+}}, 60000);
 
 /* ── 液态玻璃交互光泽：随指针/手指移动改变折射中心 ── */
 (function(){{
