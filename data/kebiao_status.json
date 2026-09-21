@@ -1,9 +1,9 @@
 {
- "ok": true,
+ "ok": false,
  "stage": "push",
  "login": true,
  "semester": "2026-2027-1",
- "current_week": 2,
+ "current_week": 3,
  "courses_total": 175,
  "weeks_with_courses": 13,
  "per_week": {
@@ -28,9 +28,9 @@
   "19": 0,
   "20": 0
  },
- "html_bytes": 161822,
+ "html_bytes": 163616,
  "holiday_rules": true,
- "push": "pushed:c2b7c8a99b7f7eae41c806e7b138eb33f7575e98",
- "secs": 9.3,
- "ts": "2026-09-20 12:00:16"
+ "error": "'utf-8' codec can't encode characters in position 144801-144802: surrogates not allowed",
+ "secs": 10.6,
+ "ts": "2026-09-21 18:00:18"
 }
