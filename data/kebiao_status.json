@@ -1,5 +1,5 @@
 {
- "ok": false,
+ "ok": true,
  "stage": "push",
  "login": true,
  "semester": "2026-2027-1",
@@ -28,9 +28,9 @@
   "19": 0,
   "20": 0
  },
- "html_bytes": 163616,
+ "html_bytes": 163601,
  "holiday_rules": true,
- "error": "'utf-8' codec can't encode characters in position 144801-144802: surrogates not allowed",
- "secs": 49.3,
- "ts": "2026-09-21 20:18:36"
+ "push": "pushed:25c0b16d79a64e19f6febb9c30355f638a6959d1",
+ "secs": 6.4,
+ "ts": "2026-09-21 20:23:19"
 }
