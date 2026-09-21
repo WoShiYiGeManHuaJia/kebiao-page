@@ -1720,6 +1720,11 @@ tr.seg-nt{{background:linear-gradient(180deg,rgba(226,235,255,.30),rgba(220,234,
 }}
 
 
+
+/* ===== V10：当天列课程卡片微微放大（放最后，压过 V7 的 transform:none） ===== */
+table.kbGlass td.today.cls{{transform:scale(1.03) !important;z-index:7 !important}}
+table.kbGlass td.today.cls.now{{transform:scale(1.05) !important;z-index:8 !important}}
+
 </style></head><body>
 
 <div class="wkbarWrap" id="wkBarWrap"><div class="wkbar" id="wkBar"><div class="wkTrack" id="wkTrack"><div class="wkThumb" id="wkThumb"></div>{wk_items}</div></div><button class="wkQuick" id="wkQuick" type="button" aria-label="快捷切换周数" aria-expanded="false"><span></span></button><div class="wkQuickPanel" id="wkQuickPanel" aria-hidden="true"><div class="wkQuickGrid" id="wkQuickGrid"></div></div></div>
