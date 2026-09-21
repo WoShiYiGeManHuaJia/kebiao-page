@@ -568,7 +568,7 @@ td.hol{{background-image:repeating-linear-gradient(135deg,
   background-color:rgba(148,163,184,.10) !important}}
 
 /* 课程块：真圆角卡片 */
-td.cls{{position:relative;z-index:6;cursor:pointer;padding:4px 3px 4px 7px;
+td.cls{{position:relative;z-index:6;cursor:pointer;padding:6px 3px 6px 7px;
   -webkit-tap-highlight-color:transparent;background-clip:padding-box;
   border-radius:14px;background-clip:border-box;
   border-right-color:transparent;border-bottom-color:transparent;
@@ -582,9 +582,13 @@ td.cls .cinfo{{display:none !important}}
 td.cls::after{{content:'';position:absolute;right:6px;bottom:5px;width:0;height:0;
   border-left:4px solid transparent;border-bottom:4px solid rgba(15,23,42,.20)}}
 td.cls::before{{content:'';position:absolute;left:2px;top:5px;bottom:5px;width:4px;
-  background:var(--tc,#3b82f6);border-radius:999px}}
+  background:linear-gradient(180deg,
+    var(--tc,#3b82f6) 0%,
+    color-mix(in srgb, var(--tc,#3b82f6) 60%, #ffffff) 100%);
+  border-radius:999px;
+  box-shadow:0 0 6px color-mix(in srgb, var(--tc,#3b82f6) 30%, transparent)}}
 td.cls:active{{opacity:.82}}
-.cname{{font-weight:800;font-size:12px;color:#0b1220;line-height:1.32;padding-left:6px}}
+.cname{{font-weight:800;font-size:12px;color:#0b1220;line-height:1.38;padding-left:6px}}
 .cinfo{{font-size:10.5px;color:#475569;margin-top:2px;line-height:1.45;padding-left:6px}}
 
 /* ── 今天列：强对比高亮 ── */
@@ -619,12 +623,20 @@ td.cls.now{{z-index:7}}
 td.cls.now::after{{content:'';position:absolute;inset:2px;border-radius:12px;
   border:2.5px solid #f43f5e;pointer-events:none;animation:kbPulse 1.6s ease-in-out infinite}}
 @keyframes kbPulse{{
-  0%,100%{{opacity:1;box-shadow:0 0 0 0 rgba(244,63,94,.35)}}
-  50%{{opacity:.75;box-shadow:0 0 0 5px rgba(244,63,94,0)}}
+  0%{{opacity:1;box-shadow:0 0 0 0 rgba(244,63,94,.40)}}
+  70%{{opacity:.84;box-shadow:0 0 0 6px rgba(244,63,94,0)}}
+  100%{{opacity:1;box-shadow:0 0 0 0 rgba(244,63,94,0)}}
 }}
-.nowBadge{{margin:5px 5px 0 7px;font-size:9.5px;font-weight:800;color:#fff;
-  background:linear-gradient(135deg,#f43f5e,#fb7185);border-radius:999px;
-  padding:3px 0;letter-spacing:.5px;box-shadow:0 2px 7px rgba(244,63,94,.4)}}
+.nowBadge{{position:relative;display:table;width:auto;
+  max-width:calc(100% - 8px);box-sizing:border-box;
+  margin:3px auto 0 !important;padding:1px 4px;
+  white-space:nowrap;text-align:center;
+  font-size:6.8px;font-weight:800;color:#fff;line-height:1.3;
+  letter-spacing:-.2px;
+  background:linear-gradient(135deg,rgba(244,63,94,.94),rgba(251,113,133,.94));
+  -webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);
+  border-radius:999px;z-index:5;pointer-events:none;
+  box-shadow:0 1px 4px rgba(244,63,94,.40)}}
 /* ── 选中列：上层悬浮液态毛玻璃圆角框（替代原蓝色高亮）── */
 .kbColGlass{{position:absolute;z-index:5;pointer-events:none;
   border-radius:22px;opacity:0;overflow:hidden;
@@ -1197,7 +1209,7 @@ td.today.cls{{transform:none;z-index:6;box-shadow:inset 0 1px rgba(255,255,255,.
 /* 苹果分段控件式玻璃滑块 */
 .wkThumb{{position:absolute;top:7px;bottom:7px;left:0;width:0;border-radius:14px;z-index:0;opacity:0;
   background:linear-gradient(135deg,#2563eb,#60a5fa);
-  box-shadow:0 6px 16px rgba(37,99,235,.36),inset 0 1px 0 rgba(255,255,255,.55);
+  box-shadow:0 8px 20px rgba(37,99,235,.42),inset 0 1px 0 rgba(255,255,255,.72),inset 0 -1px 0 rgba(255,255,255,.24);
   transition:transform .44s cubic-bezier(.34,1.42,.5,1),
              width .44s cubic-bezier(.34,1.42,.5,1),opacity .25s ease}}
 .wkThumb.on{{opacity:1}}
