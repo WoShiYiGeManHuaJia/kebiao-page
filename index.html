@@ -1506,7 +1506,7 @@ function kbRoomCard(text, tint) {
   var m = /([A-Za-z]{1,4}[－-]?\d{1,4}(?:[－-]\d{1,4})?)/.exec(room);
   var code = m ? m[1] : room;
   var rest = m ? room.replace(m[1], '') : '';
-  rest = rest.replace(/^[（(\s　]+/, ''.replace(/[）)\s　]+$/, '');
+  rest = rest.replace(/^[（(\s　]+/, '').replace(/[）)\s　]+$/, '');
   var deep = kbTint(tint, 0.32);
   var lite1 = kbTint(tint, 0.95), lite2 = kbTint(tint, 0.87);
   var h = '<div class="kbRoom" style="background:linear-gradient(135deg,' + lite1 + ',' + lite2 +
