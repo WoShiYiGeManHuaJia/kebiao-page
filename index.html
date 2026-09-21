@@ -1668,11 +1668,11 @@ function kbOpen(td) {
   for (var ri = 0; ri < KB_INFO_LABELS.length; ri++) {
     if (KB_INFO_LABELS[ri] === '教室') { roomIdx = ri; break; }
   }
+  var timeIdx = -1;
+  for (var ti = 0; ti < KB_INFO_LABELS.length; ti++) { if (KB_INFO_LABELS[ti] === '\u65f6\u95f4') { timeIdx = ti; break; } }
   var h = '';
   /* 上课地点置顶为高亮大卡片 */
   if (roomIdx >= 0 && infos[roomIdx]) {
-    var timeIdx = -1;
-    for (var ti = 0; ti < KB_INFO_LABELS.length; ti++) { if (KB_INFO_LABELS[ti] === '\u65f6\u95f4') { timeIdx = ti; break; } }
     var _t0 = td.getAttribute('data-t0') || '', _t1 = td.getAttribute('data-t1') || '';
     var timeText = (_t0 && _t1) ? (_t0 + '-' + _t1)
                  : ((timeIdx >= 0 && infos[timeIdx]) ? infos[timeIdx].textContent.trim() : '');
@@ -1684,6 +1684,7 @@ function kbOpen(td) {
   h += kbRow('⏰', '节次', td.getAttribute('data-sectext'), 'dim');
   for (var i = 0; i < infos.length; i++) {
     if (i === roomIdx) continue;   /* 教室已置顶，此处不再重复 */
+    if (i === timeIdx) continue;   /* 上课时间已由小卡显示，此处不再重复 */
     h += kbRow(ICONS[i] || '📌', KB_INFO_LABELS[i] || ('信息' + (i + 1)),
                infos[i].textContent.trim(), (KB_INFO_LABELS[i] === '教师') ? 'dim' : '');
   }
