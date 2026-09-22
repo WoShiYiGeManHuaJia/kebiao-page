@@ -1799,7 +1799,7 @@ function kbWeekOfToday() {{
   var t = new Date(n.getFullYear(), n.getMonth(), n.getDate()).getTime();
   var best = 0, bd = -1;
   for (var i = 0; i < ps.length; i++) {{
-    var m = /^(\d{{4}})-(\d{{1,2}})-(\d{{1,2}})$/.exec(ps[i].getAttribute('data-mon') || '');
+    var m = /^(\\d{{4}})-(\\d{{1,2}})-(\\d{{1,2}})$/.exec(ps[i].getAttribute('data-mon') || '');
     if (!m) continue;
     var mon = new Date(+m[1], +m[2] - 1, +m[3]).getTime();
     var wk = parseInt(ps[i].getAttribute('data-wk'), 10);
@@ -1866,10 +1866,10 @@ function kbRoomCard(text, tint) {{
   var bld = (parts[0] || '').trim();
   var room = (parts.slice(1).join('·') || '').trim();
   if (!room) {{ room = bld; bld = ''; }}
-  var m = /([A-Za-z]{{1,4}}[－-]?\d{{1,4}}(?:[－-]\d{{1,4}})?)/.exec(room);
+  var m = /([A-Za-z]{{1,4}}[－-]?\\d{{1,4}}(?:[－-]\\d{{1,4}})?)/.exec(room);
   var code = m ? m[1] : room;
   var rest = m ? room.replace(m[1], '') : '';
-  rest = rest.replace(/^[（(\\s　]+/, '').replace(/[）)\s　]+$/, '');
+  rest = rest.replace(/^[（(\\s　]+/, '').replace(/[）)\\s　]+$/, '');
   var deep = kbTint(tint, 0.32);
   var lite1 = kbTint(tint, 0.95), lite2 = kbTint(tint, 0.87);
   var h = '<div class="kbRoom" style="background:linear-gradient(135deg,' + lite1 + ',' + lite2 +
@@ -2059,7 +2059,7 @@ var KB_FOCUS = null;     /* 当前聚焦的列 1..6 */
 var KB_WK = KB_INITIAL_WK || 1;   /* 当前显示周次 */
 
 function kbMin(s) {{
-  var m = /^(\d{{1,2}}):(\d{{2}})$/.exec((s || '').trim());
+  var m = /^(\\d{{1,2}}):(\\d{{2}})$/.exec((s || '').trim());
   if (!m) return -1;
   return parseInt(m[1], 10) * 60 + parseInt(m[2], 10);
 }}
@@ -2375,56 +2375,108 @@ setInterval(kbMarkNow, 60000);
 </body></html>"""
 
 
-def gh_api(method, path, body=None, timeout=30):
+GH_BRANCH = os.environ.get("KB_GH_BRANCH", "main")
+GH_RETRY = int(os.environ.get("KB_GH_RETRY", "3") or 3)
+GH_TIMEOUT = int(os.environ.get("KB_GH_TIMEOUT", "180") or 180)
+
+
+def gh_api(method, path, body=None, timeout=None):
     """GitHub API 用系统 curl 发送（路由器的 Python 缺 https 支持，curl 自带）
 
-    ⚠ 关键点：页面 HTML 转 base64 后约 130KB+。
+    ⚠ 关键点：页面 HTML 转 base64 后约 250KB。
        Linux 对「单个命令行参数」有 MAX_ARG_STRLEN = 128KB 的硬限制，
        OpenWrt 等小内存设备还会受 ARG_MAX 总量限制，
        把这么大的串塞进 argv 会直接抛 OSError [Errno 7] Argument list too long。
        这里改成：先把 body 写入临时文件，再用 curl 的 `@文件` 语法读取，
        完全绕开 argv 长度限制（管道 stdin 在部分精简 curl 上不可靠，故用文件）。
-    """
-    import tempfile
-    cmd = ["curl", "-sS", "--max-time", str(timeout), "-X", method,
-           "-H", f"Authorization: token {GH_PAT}",
-           "-H", "Accept: application/vnd.github+json",
-           "-H", "User-Agent: kebiao-updater"]
-    tmp_path = None
-    if body is not None:
-        payload = json.dumps(body).encode("utf-8")
-        fd, tmp_path = tempfile.mkstemp(prefix="kbgh_", suffix=".json")
-        try:
-            with os.fdopen(fd, "wb") as f:
-                f.write(payload)
-        except Exception:
-            if tmp_path and os.path.exists(tmp_path):
-                os.unlink(tmp_path)
-            raise
-        cmd += ["-H", "Content-Type: application/json", "--data-binary", "@" + tmp_path]
-    cmd.append(f"https://api.github.com{path}")
-    try:
-        p = subprocess.run(cmd, capture_output=True, text=False, timeout=timeout + 5)
-    finally:
-        if tmp_path and os.path.exists(tmp_path):
-            try:
-                os.unlink(tmp_path)
-            except Exception:
-                pass
 
-    # ★ 这里必须有返回值：曾漏掉 return，导致调用方拿到 None，
-    #   cur.get("sha") 抛 'NoneType' object has no attribute 'get'。
-    raw = (p.stdout or b"").decode("utf-8", "replace").strip()
-    if p.returncode != 0:
-        err = (p.stderr or b"").decode("utf-8", "replace").strip()
-        raise RuntimeError("curl 失败(exit=%s): %s | %s"
-                           % (p.returncode, err[:200], raw[:200]))
-    if not raw:
-        raise RuntimeError("GitHub 返回空（网络不通或被拒）")
-    try:
-        return json.loads(raw)
-    except Exception:
-        raise RuntimeError("GitHub 返回非 JSON: %s" % raw[:240])
+    2026-09-22 修复：默认超时 30s → 180s，并加入最多 3 次重试。
+      4G / 校园网下 api.github.com 的 contents 接口（index.html 约 250KB base64）
+      常常 30s 内传不完，直接 exit=28 超时，导致整轮课表刷新失败。
+    """
+    if timeout is None:
+        timeout = GH_TIMEOUT
+    import tempfile
+    last_err = "未知错误"
+    n = max(1, GH_RETRY)
+    for attempt in range(n):
+        tmp_path = None
+        try:
+            cmd = ["curl", "-sS", "--max-time", str(timeout), "-X", method,
+                   "-H", f"Authorization: token {GH_PAT}",
+                   "-H", "Accept: application/vnd.github+json",
+                   "-H", "User-Agent: kebiao-updater"]
+            if body is not None:
+                payload = json.dumps(body).encode("utf-8")
+                fd, tmp_path = tempfile.mkstemp(prefix="kbgh_", suffix=".json")
+                try:
+                    with os.fdopen(fd, "wb") as f:
+                        f.write(payload)
+                except Exception:
+                    if tmp_path and os.path.exists(tmp_path):
+                        os.unlink(tmp_path)
+                    raise
+                cmd += ["-H", "Content-Type: application/json",
+                        "--data-binary", "@" + tmp_path]
+            cmd.append(f"https://api.github.com{path}")
+            try:
+                p = subprocess.run(cmd, capture_output=True, text=False,
+                                   timeout=timeout + 5)
+            finally:
+                if tmp_path and os.path.exists(tmp_path):
+                    try:
+                        os.unlink(tmp_path)
+                    except Exception:
+                        pass
+        except subprocess.TimeoutExpired:
+            last_err = "curl 超时(%ss)" % (timeout + 5)
+            print("  ! " + last_err + "，重试 %d/%d" % (attempt + 1, n))
+            time.sleep(4)
+            continue
+        except OSError as e:
+            last_err = "执行 curl 失败: %s" % e
+            print("  ! " + last_err + "，重试 %d/%d" % (attempt + 1, n))
+            time.sleep(4)
+            continue
+
+        raw = (p.stdout or b"").decode("utf-8", "replace").strip()
+        if p.returncode != 0:
+            err = (p.stderr or b"").decode("utf-8", "replace").strip()
+            last_err = "curl 失败(exit=%s): %s" % (p.returncode, err[:200])
+            # 6=解析不了主机 7=连不上 28=超时 35=SSL 52=空响应 56=接收失败
+            if p.returncode in (6, 7, 28, 35, 52, 56) and attempt < n - 1:
+                print("  ! " + last_err + "，重试 %d/%d" % (attempt + 1, n))
+                time.sleep(5)
+                continue
+            raise RuntimeError(last_err + " | " + raw[:200])
+        if not raw:
+            raise RuntimeError("GitHub 返回空（网络不通或被拒）")
+        try:
+            return json.loads(raw)
+        except Exception:
+            raise RuntimeError("GitHub 返回非 JSON: %s" % raw[:240])
+    raise RuntimeError("GitHub 请求重试 %d 次仍失败: %s" % (n, last_err))
+
+
+def _git_blob_sha(data):
+    """计算 git blob 的 sha1（与 GitHub contents / trees 接口返回的 blob sha 同一算法）"""
+    import hashlib
+    h = hashlib.sha1()
+    h.update(b"blob %d\0" % len(data))
+    h.update(data)
+    return h.hexdigest()
+
+
+def gh_remote_blob(path_in_repo):
+    """用 git trees 接口只取 sha/size（响应仅几 KB），
+    避免 contents 接口把 250KB 的 base64 正文整个下载下来（4G 下极易超时）。"""
+    tree = gh_api("GET", f"/repos/{GH_REPO}/git/trees/{GH_BRANCH}")
+    if isinstance(tree, dict):
+        for e in tree.get("tree", []) or []:
+            if e.get("path") == path_in_repo and e.get("type") == "blob":
+                return e.get("sha"), e.get("size")
+    return None, None
+
 
 def write_status(info):
     """把本次运行结果写入仓库的 data/kebiao_status.json，便于随时核查云端是否真的在工作。
@@ -2435,7 +2487,7 @@ def write_status(info):
     try:
         import datetime as _dt
         info = dict(info or {})
-        info["ts"] = (_dt.datetime.utcnow() + _dt.timedelta(hours=8)).strftime("%Y-%m-%d %H:%M:%S")
+        info["ts"] = (_dt.datetime.now(_dt.timezone.utc) + _dt.timedelta(hours=8)).strftime("%Y-%m-%d %H:%M:%S")
         payload = json.dumps(info, ensure_ascii=False, indent=1)
         cur = None
         try:
@@ -2467,16 +2519,29 @@ def _sanitize(s):
 
 def push_to_github(html):
     html = _sanitize(html)
-    cur = gh_api("GET", f"/repos/{GH_REPO}/contents/{GH_PAGE}")
-    if not isinstance(cur, dict):
-        raise RuntimeError("读取远端 index.html 失败：gh_api 返回 %r" % (cur,))
-    old_sha = cur.get("sha")
-    if base64.b64decode(cur.get("content") or "").decode("utf-8", "ignore") == html:
-        print("内容无变化，跳过推送")
-        return "no-change"
+    data = html.encode("utf-8")
+    local_sha = _git_blob_sha(data)
+    old_sha = None
+    try:
+        remote_sha, _sz = gh_remote_blob(GH_PAGE)
+        if remote_sha:
+            old_sha = remote_sha
+            if remote_sha == local_sha:
+                print("内容无变化，跳过推送")
+                return "no-change"
+    except Exception as e:
+        print("  ! 轻量取 sha 失败，回退 contents 接口: %s" % str(e)[:120])
+    if old_sha is None:
+        cur = gh_api("GET", f"/repos/{GH_REPO}/contents/{GH_PAGE}")
+        if not isinstance(cur, dict):
+            raise RuntimeError("读取远端 index.html 失败：gh_api 返回 %r" % (cur,))
+        old_sha = cur.get("sha")
+        if base64.b64decode(cur.get("content") or "").decode("utf-8", "ignore") == html:
+            print("内容无变化，跳过推送")
+            return "no-change"
     body = {
         "message": "auto-update " + time.strftime("%Y-%m-%d %H:%M"),
-        "content": base64.b64encode(html.encode("utf-8")).decode(),
+        "content": base64.b64encode(data).decode(),
         "sha": old_sha,
     }
     resp = gh_api("PUT", f"/repos/{GH_REPO}/contents/{GH_PAGE}", body)
@@ -2520,7 +2585,7 @@ def bj_now(fmt="%Y-%m-%d %H:%M"):
     UTC 时间（比北京早 8 小时），页面看起来就像"停在凌晨"。
     """
     import datetime as _dt
-    return (_dt.datetime.utcnow() + _dt.timedelta(hours=8)).strftime(fmt)
+    return (_dt.datetime.now(_dt.timezone.utc) + _dt.timedelta(hours=8)).strftime(fmt)
 
 
 if __name__ == "__main__":
