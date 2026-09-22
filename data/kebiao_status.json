@@ -1,5 +1,5 @@
 {
- "ok": true,
+ "ok": false,
  "stage": "push",
  "login": true,
  "semester": "2026-2027-1",
@@ -28,9 +28,9 @@
   "19": 0,
   "20": 0
  },
- "html_bytes": 163601,
+ "html_bytes": 164388,
  "holiday_rules": true,
- "push": "pushed:25c0b16d79a64e19f6febb9c30355f638a6959d1",
- "secs": 6.4,
- "ts": "2026-09-21 20:23:19"
+ "error": "curl 失败(exit=28): curl: (28) Operation timed out after 30002 milliseconds with 125436 out of 250031 bytes received | {\"name\":\"index.html\",\"path\":\"index.html\",\"sha\":\"493308f44c37b50b384d189fc34aabc177afbf4e\",\"size\":180847,\"url\":\"https://api.github.com/repos/WoShiYiGeManHuaJia/kebiao-page/contents/ind",
+ "secs": 34.6,
+ "ts": "2026-09-22 09:18:34"
 }
